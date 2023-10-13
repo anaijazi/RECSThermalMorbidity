@@ -15,7 +15,6 @@ Load libraries
 library(tidyverse)
 library(caret)
 library(knitr)
-library(doParallel)
 library(pROC)
 
 options(es.use_symbols = TRUE)
