@@ -20,6 +20,7 @@ library(tidyverse)
 library(caret)
 library(caretEnsemble)
 library(DMwR)
+library(doParallel)
 
 
 options(es.use_symbols = TRUE)
@@ -45,154 +46,42 @@ X <- trainData %>% select(-TEMPMA)
 Y <- trainData$TEMPMA
 ```
 
-Common parameters for parameter tuning
+Hyperparameter tuning
 ```{r}
-# Cross validate with 10-fold cross validation with 5 repeats
+# Cross validate with adaptive resampling. This method resamples the hyperparamter combinations with values near combinations that performed well. It will divide the training data into k folds and repeat the process n times. 
+
 k = 10
-n = 5
-t = 20
+n = 10
 
 set.seed(1234) 
-ctrl <- trainControl(method = "repeatedcv",
-                     number = k,
-                     repeats = n, 
+adaptControl <- trainControl(method = "adaptive_cv",
+                     number = k, repeats = n, 
+                     adaptive = list(min = 3, alpha = 0.05, method = "gls", complete = TRUE),
                      classProbs = TRUE,
                      index = createFolds(trainData$TEMPMA, k), # ensures all models have the same folds
-                     summaryFunction = twoClassSummary
+                     summaryFunction = twoClassSummary,
+                     search = "random",
+                     allowP
                      )
-
-ridge_grid <- expand.grid(alpha = 0, lambda = c(0, 10^seq(5, -5, length = t)))
-lasso_grid <- expand.grid(alpha = 1, lambda = c(0, 10^seq(5, -5, length = t)))
-svmLinear_grid <- expand.grid(C = 10^seq(-5, 5, length = t))
-svmRadial_grid <- expand.grid(C = seq(0, 5, length = t), sigma = 2^seq(-3, 5, length = t))
-knn_grid <- expand.grid(k = seq(0, 100, length = t))
-rf_grid <- expand.grid(mtry = seq(1, 20, 1))
-nn_grid <- expand.grid(size = seq(1, 10, 1), decay = seq(0.1, 1, 0.2))
 ```
 
-Create a custom SMOTE function to use within resampling. The perc.over parameter was set to generate 9x more samples of the minority class (households with temperature-related morbidity). The percent.under parameter was set to retain all samples of the majority class (households without temperature-related morbidity). Overall this results in temperature-related morbidity accounting for around 10% of the training data vs 1% in the real data. 
+Parallel processing
 ```{r}
-smote2 <- list(name = "SMOTE with custom parameters",
-                func = function (x, y) {
-                  library(DMwR)
-                  dat <- if (is.data.frame(x)) x else as.data.frame(x)
-                  dat$.y <- as.factor(y)
-                  dat <- SMOTE(.y ~ ., 
-                               data = dat, 
-                               perc.over = 900,
-                               perc.under = 1053,
-                               k = 13)
-                  list(x = dat[, !grepl(".y", colnames(dat), fixed = TRUE)], 
-                       y = dat$.y)
-                  },
-                first = TRUE)
+cl <- makePSOCKcluster(4, ) # 4 cores
+registerDoParallel(cl)
 ```
 
-#### Baseline model
 ```{r}
-models <- read_csv("../data/models.csv")
-baseline <- models %>%
-  filter(BASELINE == 1)
-
-trainData_baseline <- trainData %>%
-  select(starts_with(baseline$VARIABLE))
-
-trainData_baseline$TEMPMA <- Y
+set.seed(150)
+svmAdapt <- train(TEMPMA ~ ., data = trainData,
+                  method = "svmRadial",
+                  trControl = adaptControl,
+                  metric = "ROC",
+                  tuneLength = 25)
 ```
 
-Baseline model and no SMOTE
-```{r include=FALSE}
-# Compare multiple machine learning models
-model_list_baseline_none <- caretList(TEMPMA ~ ., 
-                        data = trainData_baseline, 
-                        trControl = ctrl,
-                        tuneList=list(
-                          ridge = caretModelSpec(method = "glmnet", tuneGrid = ridge_grid),
-                          lasso = caretModelSpec(method = "glmnet", tuneGrid = lasso_grid),
-                          svmLinear = caretModelSpec(method = "svmLinear", tuneGrid = svmLinear_grid)#,
-                          #svmRadial = caretModelSpec(method = "svmRadial", tuneGrid = svmRadial_grid),
-                          #knn = caretModelSpec(method = "knn", tuneGrid = knn_grid),
-                          #rf = caretModelSpec(method = "rf", tuneGrid = rf_grid),
-                          #nn = caretModelSpec(method = "nnet", tuneGrid = nn_grid)
-                        ))
-```
-
-Baseline model and SMOTE
-```{r include=FALSE}
-# SMOTE
-ctrl$sampling <- smote2
-
-# Compare multiple machine learning models
-model_list_baseline_smote <- caretList(TEMPMA ~ ., 
-                        data = trainData_baseline, 
-                        trControl = ctrl,
-                        tuneList=list(
-                          ridge = caretModelSpec(method = "glmnet", tuneGrid = ridge_grid),
-                          lasso = caretModelSpec(method = "glmnet", tuneGrid = lasso_grid),
-                          svmLinear = caretModelSpec(method = "svmLinear", tuneGrid = svmLinear_grid),
-                          #svmRadial = caretModelSpec(method = "svmRadial", tuneGrid = svmRadial_grid),
-                          #knn = caretModelSpec(method = "knn", tuneGrid = knn_grid),
-                          #rf = caretModelSpec(method = "rf", tuneGrid = rf_grid),
-                          #nn = caretModelSpec(method = "nnet", tuneGrid = nn_grid)
-                        ))
-```
-
-#### All features
-Model with all features and no SMOTE
-```{r include=FALSE}
-# Compare multiple machine learning models
-model_list_all_none <- caretList(TEMPMA ~ ., 
-                        data = trainData, 
-                        trControl = ctrl,
-                        tuneList=list(
-                          ridge = caretModelSpec(method = "glmnet", tuneGrid = ridge_grid),
-                          svmLinear = caretModelSpec(method = "svmLinear", tuneGrid = svmLinear_grid),
-                          svmRadial = caretModelSpec(method = "svmRadial", tuneGrid = svmRadial_grid),
-                          knn = caretModelSpec(method = "knn", tuneGrid = knn_grid),
-                          rf = caretModelSpec(method = "rf", tuneGrid = rf_grid),
-                          nn = caretModelSpec(method = "nnet", tuneGrid = nn_grid)
-                        ))
-```
-
-Model with all features and SMOTE
-```{r include=FALSE}
-# SMOTE
-ctrl$sampling <- "smote"
-
-# Compare multiple machine learning models
-model_list_all_smote <- caretList(TEMPMA ~ ., 
-                        data = trainData, 
-                        trControl = ctrl,
-                        tuneList=list(
-                          ridge = caretModelSpec(method = "glmnet", tuneGrid = ridge_grid),
-                          svmLinear = caretModelSpec(method = "svmLinear", tuneGrid = svmLinear_grid),
-                          svmRadial = caretModelSpec(method = "svmRadial", tuneGrid = svmRadial_grid),
-                          knn = caretModelSpec(method = "knn", tuneGrid = knn_grid),
-                          rf = caretModelSpec(method = "rf", tuneGrid = rf_grid),
-                          nn = caretModelSpec(method = "nnet", tuneGrid = nn_grid)
-                        ))
-```
-
-### Model performance
-With training data
+End parallel processing
 ```{r}
-results_baseline_none <- as.data.frame(resamples(model_list_baseline_none)) %>%
-  mutate(Sampling = "None") %>%
-  mutate(Model = "All")
-
-results_baseline_smote <- as.data.frame(resamples(model_list_baseline_smote)) %>%
-  mutate(Sampling = "SMOTE") %>%
-  mutate(Model = "All")
-
-results_all_none <- as.data.frame(resamples(model_list_all_none)) %>%
-  mutate(Sampling = "None") %>%
-  mutate(Model = "All")
-
-results_all_smote <- as.data.frame(resamples(model_list_all_smote)) %>%
-  mutate(Sampling = "SMOTE") %>%
-  mutate(Model = "All")
+stopCluster(cl)
 ```
-
-
-
 
