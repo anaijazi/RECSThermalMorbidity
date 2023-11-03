@@ -33,6 +33,20 @@ recs_range <- read_csv("../data/recs_range.csv")  %>%
   mutate(TEMPMA = ifelse(TEMPMA == 1, "TEMPMA", "NONE")) %>%
   mutate(TEMPMA = factor(TEMPMA, levels = c("TEMPMA", "NONE")))
 ```
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Set plot theme and colors
+theme_custom = function() {
+  theme_minimal() %+replace%
+    theme(legend.position = "top") +
+    theme(panel.grid = element_blank()) +
+    theme(strip.background = element_blank()) +
+    theme(panel.border = element_blank()) +
+    theme(panel.background = element_blank()) +
+    theme(legend.title = element_blank()) +
+    theme(axis.title = element_blank()) +
+    theme(text = element_text(size = 7, colour = "#000000"))
+}
+```
 
 ### Machine learning model building
 Partition data
@@ -52,12 +66,12 @@ Hyperparameter tuning
 # Cross validate with adaptive resampling. This method resamples the hyperparamter combinations with values near combinations that performed well. It will divide the training data into k folds and repeat the process n times. The model with test t random hyperparamter values
 
 k = 10
-n = 3
+n = 10
 
 set.seed(1234) 
 adaptControl <- trainControl(method = "adaptive_cv",
                      number = k, repeats = n, 
-                     adaptive = list(min = 3, alpha = 0.05, method = "gls", complete = FALSE),
+                     adaptive = list(min = 3, alpha = 0.05, method = "gls", complete = TRUE),
                      classProbs = TRUE,
                      index = createFolds(trainData$TEMPMA, k), # ensures all models have the same folds
                      summaryFunction = twoClassSummary,
@@ -69,8 +83,8 @@ Custom train function
 ```{r}
 train_recs <- function(training_data, ctrl, t) {
   # Set up hyperparameter grid with t elements
-  ridge_grid <- expand.grid(alpha = 0, lambda = c(0, 10^seq(5, -5, length = t-1)))
-  lasso_grid <- expand.grid(alpha = 1, lambda = c(0, 10^seq(5, -5, length = t-1)))
+  ridge_grid <- expand.grid(alpha = 0, lambda = c(10^seq(5, -5, length = t)))
+  lasso_grid <- expand.grid(alpha = 1, lambda = c(10^seq(5, -5, length = t)))
   svmLinear_grid <- expand.grid(C = 10^seq(-5, 5, length = t))
   svmRadial_grid <- expand.grid(C = seq(0.1, 5, length = sqrt(t)), sigma = 2^seq(-3, 5, length = sqrt(t)))
   knn_grid <- expand.grid(k = round(seq(1, sqrt(nrow(training_data)), length = t))) %>% # rule of thumb that optimal k in knn is sqrt(n)
@@ -98,8 +112,8 @@ train_recs <- function(training_data, ctrl, t) {
 
 ```{r}
 subsamples <- c("none", "up", "smote")
-models <- c("Baseline", "Buildings", "All")
-t = 5
+models <- c("Climate", "Demographic", "Construction", "Envelope", "HVAC", "Building.All", "All")
+t = 50
 
 variables <- read_csv("../data/variables.csv")
 results_resamples <- data.frame()
@@ -107,21 +121,24 @@ results_resamples <- data.frame()
 for (i in subsamples) {
   for (j in models) {
     # Select columns for training data
-    if(j == "Baseline") {
+    if (j == "Building.All") {
       vars <- variables %>%
-        filter(BASELINE == 1)
+        filter(CATEGORY.4 == "Building")
+      
       training <- trainData %>%
         select(starts_with(vars$VARIABLE))
-      }
-    else if(j == "Buildings") {
-      vars <- variables %>%
-        filter(BUILDINGS == 1)
-      training <- trainData %>%
-        select(starts_with(vars$VARIABLE))
-      }
-    else {
+    }
+    else if (j == "All") {
       training <- trainData
-      }
+    }
+    
+    else {
+      vars <- variables %>%
+        filter(CATEGORY.6 == j)
+      
+      training <- trainData %>%
+        select(starts_with(vars$VARIABLE))
+    }
     training$TEMPMA <- Y
     # Set sampling
     if (i == "none") {
@@ -132,29 +149,28 @@ for (i in subsamples) {
     }
     cl <- makePSOCKcluster(detectCores()-1) # Reserve 1 core for operating system
     registerDoParallel(cl) # Start parallel processing
-    
+
     set.seed(1234)
     train_output <- train_recs(training, adaptControl, t)
-    
+
     stopCluster(cl) # End parallel processing
-    
+
     results_ROC <- as.data.frame(resamples(train_output), metric = "ROC") %>%
       mutate(Model = j) %>%
       mutate(Sampling = i) %>%
       mutate(Metric = "ROC")
-    
+
     results_Sens <- as.data.frame(resamples(train_output), metric = "Sens") %>%
       mutate(Model = j) %>%
       mutate(Sampling = i) %>%
       mutate(Metric = "Sens")
-    
+
     results_Spec <- as.data.frame(resamples(train_output), metric = "Spec") %>%
       mutate(Model = j) %>%
       mutate(Sampling = i) %>%
       mutate(Metric = "Spec")
-    
+
     results_resamples <- rbind(results_resamples, results_ROC, results_Sens, results_Spec)
- 
   }
 }
 
@@ -162,13 +178,17 @@ for (i in subsamples) {
 ```
 ```{r}
 results_long <- results_resamples %>%
-  select(-Resample) %>%
-  pivot_longer(cols = ridge:nn, names_to = "MLMethod", values_to = "Value")
+  pivot_longer(cols = ridge:knn, names_to = "MLMethod", values_to = "Value") %>%
+  filter(Sampling == "smote" & MLMethod == "knn") %>%
+  mutate(Metric = factor(Metric, levels = c("Sens", "Spec", "ROC"))) # %>%
+  # filter(Model == "All" | Model == "Building.All" | Model == "Demographic")
 
-ggplot(results_long, aes(x= Model, y = Value, fill = Sampling)) +
+ggplot(results_long, aes(x= Model, y = Value, fill = Model)) +
+  # geom_hline(yintercept = c(0, 0.5, 1), linetype = "dashed") +
+  # ylim(0, 1) +
+  # scale_fill_manual(values = c("#ee833d", "#59abb7", "#495893")) +
   geom_boxplot() +
   facet_wrap(vars(Metric)) +
-  theme_minimal() +
-  coord_flip()
+  theme_custom()
 ```
 
