@@ -1,0 +1,35 @@
+﻿ORDER,VARIABLE,LONG.NAME,CATEGORY.6,CATEGORY.4,BASELINE,BUILDINGS,ALL
+1,DBT1,Cooling design temperature,Climate,Climate,1,0,1
+2,DBT99,Heating design temperature,Climate,Climate,1,0,1
+3,HOUSEHOLDER_RACE,Household race,Demographic,Demographic,1,0,1
+4,SDESCENT,Hispanic,Demographic,Demographic,1,0,1
+5,HHAGE,Respondent age,Demographic,Demographic,1,0,1
+6,OVER65,Respondent age is above 65,Demographic,Demographic,1,0,1
+7,NHSLDMEM,Number of household members,Demographic,Demographic,1,0,1
+8,EDUCATION,Highest level of education completed by respondent,Demographic,Demographic,1,0,1
+9,EMPLOYHH,Respondent employment status,Demographic,Demographic,1,0,1
+10,MONEYPY,Annual gross household income,Demographic,Demographic,1,0,1
+11,POVERTY,Poverty based on U.S. Census Bureau threshold,Demographic,Demographic,1,0,1
+12,KOWNRENT,Household owns or rents,Demographic,Demographic,1,0,1
+13,ELPAY,Household fully pays electric bills,Demographic,Demographic,1,0,1
+14,NGPAY,Household fully pays natural gas bills,Demographic,Demographic,1,0,1
+15,TYPEHUQ,Construction type,Construction,Building,0,1,1
+16,YEARMADERANGE,Construction age,Construction,Building,0,1,1
+17,TOTROOMS,Total rooms,Construction,Building,0,1,1
+18,WALLTYPE,Wall type,Envelope,Building,0,1,1
+19,ROOFTYPE,Roof type,Envelope,Building,0,1,1
+20,THERMALMASS,"Wall or roof type is thermally massive (brick, stone, or concrete materials)",Envelope,Building,0,1,1
+21,ADQINSUL,Insulation level,Envelope,Building,0,1,1
+22,DRAFTY,Infiltration,Envelope,Building,0,1,1
+23,WINDOWS,Window-to-wall ratio,Envelope,Building,0,1,1
+24,WINFRAME,Window frame type,Envelope,Building,0,1,1
+25,TYPEGLASS,Window glazing type,Envelope,Building,0,1,1
+26,COOLTYPE,AC type,HVAC,Building,0,1,1
+27,EQUIPM,Primary heating type,HVAC,Building,0,1,1
+28,ACEQUIPAGE,AC equipment age,HVAC,Building,0,1,1
+29,EQUIPAGE,Heating equipment age,HVAC,Building,0,1,1
+30,NOACDAYS,No AC days,HVAC,Building,0,1,1
+31,NOHEATDAYS,No heat days,HVAC,Building,0,1,1
+32,NUMCFAN,Number of ceiling fans,HVAC,Building,0,1,1
+33,NUMFLOORFAN,Number of floor fans,HVAC,Building,0,1,1
+34,OFFGRID,Has back-up power or on-site solar,HVAC,Building,0,1,1
