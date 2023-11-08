@@ -56,7 +56,7 @@ Subset variables of interest and prepare data for merging
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Prepare 2015 data set
 recs_2015_sub <- recs_2015 %>%
-  select(CDD30YR, CDD65, HDD30YR, HDD65, DBT1, DBT99, HOUSEHOLDER_RACE, SDESCENT, HHAGE, NUMADULT, NUMCHILD, MONEYPY, EMPLOYHH, EDUCATION, KOWNRENT, ELPAY, NGPAY, UATYP10, TYPEHUQ, YEARMADERANGE, WALLTYPE, ROOFTYPE, ADQINSUL, DRAFTY, TOTROOMS, WINDOWS, WINFRAME, TYPEGLASS, AIRCOND, HEATHOME, COOLTYPE, SWAMPCOL, EQUIPM,  NOACDAYS, NOHEATDAYS, AGECENAC, WWACAGE, EQUIPAGE, NOACBROKE, NOHEATBROKE, NOACEL, NOHEATEL, NOHEATNG, NOHEATBULK, NUMCFAN, NUMFLOORFAN, BACKUP, SOLAR, SCALEG, HOTMA, COLDMA, NWEIGHT) %>%
+  select(CDD30YR, CDD65, HDD30YR, HDD65, DBT1, DBT99, HOUSEHOLDER_RACE, SDESCENT, HHAGE, NUMADULT, NUMCHILD, MONEYPY, EMPLOYHH, EDUCATION, KOWNRENT, ELPAY, NGPAY, LPGPAY, FOPAY, UATYP10, TYPEHUQ, YEARMADERANGE, WALLTYPE, ROOFTYPE, ADQINSUL, DRAFTY, TOTROOMS, WINDOWS, WINFRAME, TYPEGLASS, AIRCOND, HEATHOME, COOLTYPE, SWAMPCOL, EQUIPM,  NOACDAYS, NOHEATDAYS, AGECENAC, WWACAGE, EQUIPAGE, NOACBROKE, NOHEATBROKE, NOACEL, NOHEATEL, NOHEATNG, NOHEATBULK, NUMCFAN, NUMFLOORFAN, BACKUP, SOLAR, SCALEG, SCALEB, SCALEE, HOTMA, COLDMA, NWEIGHT) %>%
   mutate(NUMADULT2 = 0) %>%
   mutate(MONEYPY = case_when(MONEYPY == 1 ~ 0,
                              MONEYPY == 2 ~ 20000,
@@ -102,7 +102,7 @@ recs_2015_sub <- recs_2015 %>%
   
 # Prepare 2020 data set
 recs_2020_sub <- recs_2020 %>%
-    select(CDD30YR_PUB, CDD65, HDD30YR_PUB, HDD65, DBT1, DBT99, HOUSEHOLDER_RACE, SDESCENT, HHAGE, NUMADULT1, NUMADULT2, NUMCHILD, MONEYPY, EMPLOYHH, EDUCATION, KOWNRENT, ELPAY, NGPAY, UATYP10, TYPEHUQ, YEARMADERANGE, WALLTYPE, ROOFTYPE, ADQINSUL, DRAFTY, TOTROOMS, WINDOWS, WINFRAME, TYPEGLASS, AIRCOND, HEATHOME, ACEQUIPM_PUB, ACEQUIPAUXTYPE_PUB, EQUIPM, NOACDAYS, NOHEATDAYS, ACEQUIPAGE, EQUIPAGE, NOACBROKE, NOHEATBROKE, NOACEL, NOHEATEL, NOHEATNG, NOHEATBULK, NUMCFAN, NUMFLOORFAN, BACKUP, SOLAR, SCALEG, HOTMA, COLDMA, NWEIGHT) %>%
+    select(CDD30YR_PUB, CDD65, HDD30YR_PUB, HDD65, DBT1, DBT99, HOUSEHOLDER_RACE, SDESCENT, HHAGE, NUMADULT1, NUMADULT2, NUMCHILD, MONEYPY, EMPLOYHH, EDUCATION, KOWNRENT, ELPAY, NGPAY, LPGPAY, FOPAY, UATYP10, TYPEHUQ, YEARMADERANGE, WALLTYPE, ROOFTYPE, ADQINSUL, DRAFTY, TOTROOMS, WINDOWS, WINFRAME, TYPEGLASS, AIRCOND, HEATHOME, ACEQUIPM_PUB, ACEQUIPAUXTYPE_PUB, EQUIPM, NOACDAYS, NOHEATDAYS, ACEQUIPAGE, EQUIPAGE, NOACBROKE, NOHEATBROKE, NOACEL, NOHEATEL, NOHEATNG, NOHEATBULK, NUMCFAN, NUMFLOORFAN, BACKUP, SOLAR, SCALEG, HOTMA, COLDMA, NWEIGHT, TREESHAD) %>%
   mutate(NUMADULT = NUMADULT1 + NUMADULT2) %>%
   rename(CDD30YR = CDD30YR_PUB, HDD30YR = HDD30YR_PUB) %>%
   mutate(HOUSEHOLDER_RACE = ifelse(HOUSEHOLDER_RACE == 6, 7, HOUSEHOLDER_RACE)) %>%
@@ -153,6 +153,14 @@ recs_all <- full_join(recs_2015_sub, recs_2020_sub) %>%
   mutate(TEMPMA = ifelse(HOTMA == 1 | COLDMA == 1, 1, 0))
 ```
 ### Data visualization
+Tally
+```{r}
+recs_temp <- recs_all %>%
+  select(YEAR, HOTMA, COLDMA, TEMPMA) %>%
+  group_by(YEAR) %>%
+  summarise(HOTMA = sum(HOTMA), COLDMA = sum(COLDMA), TEMPMA = sum(TEMPMA))
+```
+
 #### Temperature-related morbidity
 ```{r}
 recs_temp_morb <- recs_all %>%
@@ -170,7 +178,7 @@ recs_temp_morb <- recs_all %>%
 
 total_households <- recs_all %>%
   group_by(YEAR) %>%
-  summarise(households = sum(NWEIGHT))
+  
 
 ggplot(recs_temp_morb, aes(x = fct_reorder(LABEL, ISSUE), y = ISSUE, fill = YEAR)) + 
   geom_col(position = "dodge2") + 
@@ -187,17 +195,18 @@ In merged data set, recode household characteristics to further explore features
 ```{r}
 recs_recode <- recs_all %>%
   mutate(NONWHITE = ifelse(HOUSEHOLDER_RACE != 1 | SDESCENT == 1, 1, 0)) %>%
-  mutate(OVER65 = ifelse(HHAGE > 65 | NUMADULT2 != 0, 1, 0)) %>% # ADULT2 in the 2020 data set counts the number of adults over 65
+  mutate(OVER65 = ifelse(HHAGE > 65 | NUMADULT2 > 0, 1, 0)) %>% # ADULT2 in the 2020 data set counts the number of adults over 65
   mutate(NHSLDMEM = NUMADULT + NUMCHILD) %>%
+  mutate(LIVESALONE = ifelse(NHSLDMEM == 1, 1, 0)) %>%
+  mutate(LARGEHOUSE = ifelse(NHSLDMEM >= 7, 1, 0) ) %>%
+  mutate(HIGHSCHOOL = ifelse(EDUCATION <= 2, 1, 0)) %>%
   mutate(RENT = ifelse(KOWNRENT == 2, 1, 0)) %>%
   mutate(ELPAY = ifelse(ELPAY == 1, 1, 0)) %>%
   mutate(NGPAY = ifelse(NGPAY == 1, 1, 0)) %>%
-  mutate(ELPAY = ifelse(ELPAY == 1, 1, 0)) %>%
-  mutate(NGPAY = ifelse(NGPAY == 1, 1, 0)) %>%
+  mutate(FOPAY = ifelse(FOPAY == 1, 1, 0)) %>%
+  mutate(LPGPAY = ifelse(LPGPAY == 1, 1, 0)) %>%
+  mutate(PAYSUTL = ifelse(ELPAY == 1 | NGPAY == 1 | FOPAY == 1 | LPGPAY, 1, 0)) %>%
   mutate(APARTMENT = ifelse(TYPEHUQ >= 4, 1, 0)) %>%
-  mutate(UATYP10 = case_when(UATYP10 == "U" ~ 1, # Urban areas 
-                           UATYP10 == "C" ~ 0.5, # Urban cluster
-                           UATYP10 == "R" ~ 0)) %>% # Rural
   mutate(YEARMADERANGE = case_when(YEARMADERANGE == 1 ~ 1950,
                                    YEARMADERANGE == 2 ~ 1959,
                                    YEARMADERANGE == 3 ~ 1969,
@@ -227,11 +236,8 @@ recs_recode <- recs_all %>%
                                       HOUSEHOLDER_RACE == 5 ~ "NativeHawaiian",
                                       HOUSEHOLDER_RACE == 6 ~ "OtherRace",
                                       HOUSEHOLDER_RACE == 7 ~ "MixedRace")) %>%
-  mutate(TYPEHUQ = case_when(TYPEHUQ == 1 ~ "Mobile",
-                             TYPEHUQ == 2 ~ "SFDetached",
-                             TYPEHUQ == 3 ~ "SFAttached",
-                             TYPEHUQ == 4 ~ "AptLow",
-                             TYPEHUQ == 5 ~ "AptHigh")) %>%
+  mutate(MOBILE = ifelse(TYPEHUQ == 1, 1, 0)) %>%
+  mutate(APT = ifelse(TYPEHUQ >= 4, 1, 0)) %>%
   mutate(WALLTYPE = case_when(WALLTYPE == 1 ~ "Brick",
                               WALLTYPE == 2 ~ "Wood",
                               WALLTYPE == 3 ~ "Siding",
@@ -295,12 +301,23 @@ recs_recode <- recs_all %>%
   mutate(NOAC = ifelse(NOACDAYS > 0 | NOACEL == 1 | NOACBROKE == 1, 1, 0)) %>%
   mutate(NOHEAT = ifelse(NOHEATDAYS > 0 | NOHEATFUEL == 1 | NOHEATBROKE == 1, 1, 0)) %>%
   mutate(DRAFTY = (DRAFTY*-1) + 4) %>%
-  mutate(OFFGRID = ifelse(BACKUP == 1 | SOLAR == 1, 1, 0))
+  mutate(OFFGRID = ifelse(BACKUP == 1 | SOLAR == 1, 1, 0)) %>%
+  mutate(ENRGINSEC = case_when(NOACEL == 1 ~ 1,
+                               NOHEATEL == 1 ~ 1,
+                               NOHEATNG == 1 ~ 1,
+                               NOHEATBULK == 1 ~ 1,
+                               NOACBROKE == 1 ~ 1,
+                               NOHEATBROKE == 1 ~ 1,
+                               SCALEB != 0 ~ 1, 
+                               SCALEG != 0 ~ 1,
+                               SCALEE != 0 ~ 1,
+                               TRUE ~ 0
+                               ))
 ```
 
 ```{r}
 recs_subset <- recs_recode %>%
-  select(DBT1, DBT99, HOUSEHOLDER_RACE, SDESCENT, HHAGE, OVER65, NHSLDMEM, EDUCATION, EMPLOYHH, MONEYPY, POVERTY, KOWNRENT, ELPAY, NGPAY, UATYP10, TYPEHUQ, YEARMADERANGE, TOTROOMS, WALLTYPE, ROOFTYPE, THERMALMASS, ADQINSUL, DRAFTY, WINDOWS, WINFRAME, TYPEGLASS, COOLTYPE, EQUIPM, ACEQUIPAGE, EQUIPAGE, NOACDAYS, NOHEATDAYS, NUMCFAN, NUMFLOORFAN, OFFGRID, TEMPMA)
+  select(DBT1, DBT99, NONWHITE, OVER65, LIVESALONE, LARGEHOUSE, POVERTY, EMPLOYHH, HIGHSCHOOL, RENT, PAYSUTL, TYPEHUQ, YEARMADERANGE, WALLTYPE, ROOFTYPE, ADQINSUL, DRAFTY, WINDOWS, WINFRAME, TYPEGLASS, AIRCOND, HEATHOME, COOLTYPE, EQUIPM, ENRGINSEC, NUMCFAN, NUMFLOORFAN, OFFGRID, TEMPMA)
 ```
 
 No filtering based on categorical variables
@@ -308,3 +325,4 @@ No filtering based on categorical variables
 ```{r}
 write_csv(recs_subset, "../data/recs_subset.csv")
 ```
+

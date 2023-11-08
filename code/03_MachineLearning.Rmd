@@ -21,8 +21,11 @@ library(caret)
 library(caretEnsemble)
 library(DMwR)
 library(doParallel)
-library(pracma)
-
+library(ggpubr)
+library(rcartocolor)
+library(MLmetrics)
+library(pROC)
+library(PRROC) # for Precision-Recall curve calculations
 
 options(es.use_symbols = TRUE)
 ```
@@ -48,6 +51,12 @@ theme_custom = function() {
 }
 ```
 
+Color palette
+```{r}
+## custom colors
+my_pal <- rcartocolor::carto_pal(n = 5, name = "Vivid")
+```
+
 ### Machine learning model building
 Partition data
 ```{r}
@@ -65,23 +74,30 @@ Hyperparameter tuning
 ```{r}
 # Cross validate with adaptive resampling. This method resamples the hyperparamter combinations with values near combinations that performed well. It will divide the training data into k folds and repeat the process n times. The model with test t random hyperparamter values
 
-k = 10
-n = 10
-
-set.seed(1234) 
-adaptControl <- trainControl(method = "adaptive_cv",
-                     number = k, repeats = n, 
-                     adaptive = list(min = 3, alpha = 0.05, method = "gls", complete = TRUE),
-                     classProbs = TRUE,
-                     index = createFolds(trainData$TEMPMA, k), # ensures all models have the same folds
-                     summaryFunction = twoClassSummary,
-                     allowParallel = TRUE
-                     )
 ```
 
 Custom train function
 ```{r}
-train_recs <- function(training_data, ctrl, t) {
+train_recs <- function(training_data, k, n, t, i) {
+  set.seed(123) 
+  adaptControl <- trainControl(method = "adaptive_cv",
+                     number = k, repeats = n, 
+                     adaptive = list(min = 3, alpha = 0.05, method = "gls", complete = TRUE),
+                     classProbs = TRUE,
+                     index = createFolds(trainData$TEMPMA, k), # ensures all models have the same folds and folds are stratified by TEMPMA
+                     summaryFunction = prSummary,
+                     allowParallel = TRUE,
+                     savePredictions = "all"
+                     )
+  
+  # Set sampling
+    if (i == "none") {
+    adaptControl$sampling <- NULL # Due to error that sampling cannot equal "none" https://github.com/topepo/caret/issues/1001
+  }
+    else {
+      adaptControl$sampling <- i
+    }
+    
   # Set up hyperparameter grid with t elements
   ridge_grid <- expand.grid(alpha = 0, lambda = c(10^seq(5, -5, length = t)))
   lasso_grid <- expand.grid(alpha = 1, lambda = c(10^seq(5, -5, length = t)))
@@ -105,15 +121,19 @@ train_recs <- function(training_data, ctrl, t) {
   # Train model
   return(caretList(TEMPMA ~ .,
                    data = training_data,
-                   trControl = ctrl,
-                   tuneList = mlModels))
+                   trControl = adaptControl,
+                   tuneList = mlModels,
+                   metric = "AUC"))
 }
 ```
 
 ```{r}
-subsamples <- c("none", "up", "smote")
+imbalanced <- c("none", "weights", "up", "smote")
 models <- c("Climate", "Demographic", "Construction", "Envelope", "HVAC", "Building.All", "All")
-t = 50
+MLMethods <- c("glm", "gbm", "")
+k = 10
+n = 5
+t = 10
 
 variables <- read_csv("../data/variables.csv")
 results_resamples <- data.frame()
@@ -140,55 +160,235 @@ for (i in subsamples) {
         select(starts_with(vars$VARIABLE))
     }
     training$TEMPMA <- Y
-    # Set sampling
-    if (i == "none") {
-    adaptControl$sampling <- NULL # Due to error that sampling cannot equal "none" https://github.com/topepo/caret/issues/1001
-  }
-    else {
-      adaptControl$sampling <- i
+    
+    for (k in folds) {
+      cl <- makePSOCKcluster(detectCores()-1) # Reserve 1 core for operating system
+      registerDoParallel(cl) # Start parallel processing
+      
+      set.seed(123)
+      train_output <- train_recs(training, k, n, t, i)
+      stopCluster(cl) # End parallel processing
+      
+      results_AUC <- as.data.frame(resamples(train_output), metric = "AUC") %>%
+        mutate(Model = j) %>%
+        mutate(Sampling = i) %>%
+        mutate(Folds = k) %>%
+        mutate(Metric = "AUC")
+
+      results_Precision <- as.data.frame(resamples(train_output), metric = "Precision") %>%
+        mutate(Model = j) %>%
+        mutate(Sampling = i) %>%
+        mutate(Folds = k) %>%
+        mutate(Metric = "Precision")
+
+      results_Recall <- as.data.frame(resamples(train_output), metric = "Recall") %>%
+        mutate(Model = j) %>%
+        mutate(Sampling = i) %>%
+        mutate(Folds = k) %>%
+        mutate(Metric = "Recall")
+    
+      results_F <- as.data.frame(resamples(train_output), metric = "F") %>%
+        mutate(Model = j) %>%
+        mutate(Sampling = i) %>%
+        mutate(Folds = k) %>%
+        mutate(Metric = "F")
+
+    results_resamples <- rbind(results_resamples, results_AUC, results_Precision, results_Recall, results_F)
+      
     }
-    cl <- makePSOCKcluster(detectCores()-1) # Reserve 1 core for operating system
-    registerDoParallel(cl) # Start parallel processing
-
-    set.seed(1234)
-    train_output <- train_recs(training, adaptControl, t)
-
-    stopCluster(cl) # End parallel processing
-
-    results_ROC <- as.data.frame(resamples(train_output), metric = "ROC") %>%
-      mutate(Model = j) %>%
-      mutate(Sampling = i) %>%
-      mutate(Metric = "ROC")
-
-    results_Sens <- as.data.frame(resamples(train_output), metric = "Sens") %>%
-      mutate(Model = j) %>%
-      mutate(Sampling = i) %>%
-      mutate(Metric = "Sens")
-
-    results_Spec <- as.data.frame(resamples(train_output), metric = "Spec") %>%
-      mutate(Model = j) %>%
-      mutate(Sampling = i) %>%
-      mutate(Metric = "Spec")
-
-    results_resamples <- rbind(results_resamples, results_ROC, results_Sens, results_Spec)
   }
 }
 
   
 ```
+Model weights
+```{r}
+ctrl <- trainControl(method = "repeatedcv",
+                     number = 10,
+                     repeats = 5,
+                     summaryFunction = prSummary,
+                     classProbs = TRUE,
+                     index = createFolds(trainData$TEMPMA, 10))
+
+model_weights <- ifelse(trainData$TEMPMA == "TEMPMA",
+                        (1/table(trainData$TEMPMA)[1]) * 0.5,
+                        (1/table(trainData$TEMPMA)[2]) * 0.5)
+# Original model
+ctrl$sampling <- NULL
+set.seed(123)
+orig_fit <- train(TEMPMA ~ .,
+                  data = trainData,
+                  method = "glm",
+                  metric = "AUC",
+                  trControl = ctrl)
+
+# Weighted model
+ctrl$sampling <- NULL
+set.seed(123)
+weighted_fit <- train(TEMPMA ~ .,
+                      data = trainData,
+                      method = "gbm",
+                      weights = model_weights,
+                      metric = "AUC",
+                      trControl = ctrl)
+
+# Up-sampled model
+ctrl$sampling <- "up"
+set.seed(123)
+up_fit <- train(TEMPMA ~ .,
+                  data = trainData,
+                  method = "gbm",
+                  metric = "AUC",
+                  trControl = ctrl)
+
+# SMOTE model
+ctrl$sampling <- "smote"
+set.seed(123)
+smote_fit <- train(TEMPMA ~ .,
+                  data = trainData,
+                  method = "gbm",
+                  verbose = FALSE,
+                  metric = "AUC",
+                  trControl = ctrl)
+
+# ROSE-sampled model
+ctrl$sampling <- "rose"
+set.seed(123)
+rose_fit <- train(TEMPMA ~ .,
+                  data = trainData,
+                  method = "gbm",
+                  verbose = FALSE,
+                  metric = "AUC",
+                  trControl = ctrl)
+```
+```{r}
+varImp(weighted_fit)
+```
+
+
+
+```{r}
+calc_auprc <- function(model, data){
+  
+  index_class1 <- data$TEMPMA == "TEMPMA"
+  index_class2 <- data$TEMPMA == "NONE"
+  
+  predictions <- predict(model, data, type = "prob")
+  
+  pr.curve(predictions$TEMPMA[index_class1],
+           predictions$TEMPMA[index_class2],
+           curve = TRUE)
+}
+
+# Get results for all 5 models
+model_list <- list(original = orig_fit,
+                   weighted = weighted_fit,
+                   up = up_fit,
+                   SMOTE = smote_fit,
+                   ROSE = rose_fit)
+
+
+model_list_pr <- model_list %>%
+  map(calc_auprc, data = testData)
+
+model_list_pr %>%
+  map(function(the_mod) the_mod$auc.integral)
+
+```
+
+```{r}
+# Plot the AUPRC curve for all 5 models
+
+results_list_pr <- list(NA)
+num_mod <- 1
+
+for(the_pr in model_list_pr){
+  
+  results_list_pr[[num_mod]] <- 
+    data_frame(recall = the_pr$curve[, 1],
+               precision = the_pr$curve[, 2],
+               model = names(model_list_pr)[num_mod])
+  
+  num_mod <- num_mod + 1
+  
+}
+
+results_df_pr <- bind_rows(results_list_pr)
+
+ggplot(aes(x = recall, y = precision, group = model),
+       data = results_df_pr) +
+  geom_line(aes(color = model)) +
+  scale_color_manual(values = rev(my_pal)) +
+  geom_abline(intercept =
+                sum(testData$TEMPMA == "TEMPMA")/nrow(testData),
+              slope = 0, color = "gray") +
+  theme_custom()
+```
+
+
+
+```{r}
+test_roc <- function(model, data) {
+  
+  pROC::roc(data$TEMPMA,
+      predict(model, data, type = "prob")[, "TEMPMA"])
+
+}
+
+model_list_roc <- model_list %>%
+  map(test_roc, data = testData)
+
+model_list_roc %>%
+  map(pROC::auc)
+```
+```{r}
+results_list_roc <- list(NA)
+num_mod <- 1
+
+for(the_roc in model_list_roc){
+  
+  results_list_roc[[num_mod]] <- 
+    data_frame(tpr = the_roc$sensitivities,
+               fpr = 1 - the_roc$specificities,
+               model = names(model_list)[num_mod])
+  
+  num_mod <- num_mod + 1
+  
+}
+
+results_df_roc <- bind_rows(results_list_roc)
+
+# Plot ROC curve for all 5 models
+ggplot(aes(x = fpr,  y = tpr, group = model), data = results_df_roc) +
+  geom_line(aes(color = model)) +
+  scale_color_manual(values = rev(my_pal)) +
+  geom_abline(intercept = 0, slope = 1, color = "gray") +
+  theme_custom()
+```
+
+
 ```{r}
 results_long <- results_resamples %>%
+  drop_na() %>%
   pivot_longer(cols = ridge:knn, names_to = "MLMethod", values_to = "Value") %>%
-  filter(Sampling == "smote" & MLMethod == "knn") %>%
-  mutate(Metric = factor(Metric, levels = c("Sens", "Spec", "ROC"))) # %>%
-  # filter(Model == "All" | Model == "Building.All" | Model == "Demographic")
+  group_by(Folds, MLMethod, Metric) %>%
+  summarise(Mean = mean(Value), SD = sd(Value)) %>%
+  mutate(Lower = Mean - 2*SD, Upper = Mean + 2*SD) %>%
+  filter(MLMethod != "ridge") %>%
+  filter(Metric == "Recall") %>%
+  arrange(-Mean)
+```
 
-ggplot(results_long, aes(x= Model, y = Value, fill = Model)) +
-  # geom_hline(yintercept = c(0, 0.5, 1), linetype = "dashed") +
-  # ylim(0, 1) +
-  # scale_fill_manual(values = c("#ee833d", "#59abb7", "#495893")) +
-  geom_boxplot() +
-  facet_wrap(vars(Metric)) +
+```{r}
+ggplot(results_long, aes(x = Folds, y = Mean, linetype = MLMethod, colour = MLMethod, group = MLMethod)) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.5, position = position_dodge(0.05)) +
+  scale_colour_manual(values = my_pal) +
+  facet_wrap(vars(Metric), scales = "free") +
   theme_custom()
+```
+```{r}
+train_output
 ```
 

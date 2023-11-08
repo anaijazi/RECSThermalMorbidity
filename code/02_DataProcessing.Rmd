@@ -15,7 +15,6 @@ Load libraries
 library(tidyverse)
 library(caret)
 library(knitr)
-library(pROC)
 
 options(es.use_symbols = TRUE)
 ```
@@ -41,6 +40,8 @@ recs_dummy <- data.frame(recs_dummy_mat)
 recs_dummy$TEMPMA <- y
 ```
 
+Expanded to 63 variables
+
 Zero- and Near Zero-Variance Predictors
 
 ```{r}
@@ -50,7 +51,7 @@ recs_nzv <- recs_dummy[,-nzv]
 recs_nzv$TEMPMA <- y # add TEMPMA back
 ```
 
-Drops 31 features
+Reduced to 41 variables
 
 Correlated predictors
 ```{r}
@@ -59,7 +60,7 @@ highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
 recs_cor <- recs_nzv[,-highlyCorDescr]
 ```
 
-Drops 11 features
+Reduced to 40 variables
 
 Linear dependencies
 ```{r}
@@ -67,7 +68,7 @@ comboInfo <- findLinearCombos(recs_cor) # No remaining features are linearly cor
 recs_lin <- recs_cor
 ```
 
-Drops 0 features
+No change
 
 Scale data to the interval between zero and one
 ```{r}
@@ -79,3 +80,12 @@ recs_range <- predict(preProcValues, recs_lin)
 ```{r}
 write_csv(recs_range, "../data/recs_range.csv")
 ```
+
+```{r}
+pp_hpc <- preProcess(recs_dummy, 
+                     method = c("nzv", "corr", "range"))
+recs_range <- predict(pp_hpc, recs_dummy)
+pp_hpc$method$remove
+
+```
+
