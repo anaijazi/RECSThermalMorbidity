@@ -68,7 +68,8 @@ t.test_sig <- t.test_result %>%
   filter(adj.sig == "*") %>%
   mutate(mag.d = abs(d), mag.CI_low = abs(CI_low), mag.CI_high = abs(CI_high)) %>%
   arrange(-mag.d) %>%
-  inner_join(variables, by = join_by(variable == VARIABLE))
+  rename(VARIABLE = variable) %>%
+  inner_join(variables)
 ```
 
 Plot effect sizes of significant variables

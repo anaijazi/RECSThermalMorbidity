@@ -20,12 +20,8 @@ library(tidyverse)
 library(caret)
 library(DMwR)
 library(doParallel)
-library(ggpubr)
 library(rcartocolor)
 library(MLmetrics)
-library(pROC)
-library(PRROC) # for Precision-Recall curve calculations
-library(tictoc)
 
 options(es.use_symbols = TRUE)
 ```
@@ -38,41 +34,12 @@ recs_standardized <- read_csv("../data/recs_standardized.csv") %>%
 
 variables <- read_csv("../data/variables.csv")
 ```
-```{r message=FALSE, warning=FALSE, include=FALSE}
-# Set plot theme and colors
-theme_custom = function() {
-  theme_minimal() %+replace%
-    theme(legend.position = "top") +
-    theme(panel.grid = element_blank()) +
-    theme(strip.background = element_blank()) +
-    theme(panel.border = element_blank()) +
-    theme(panel.background = element_blank()) +
-    theme(legend.title = element_blank()) +
-    theme(axis.title = element_blank()) +
-    theme(text = element_text(size = 7, colour = "#000000"))
-}
-```
-
-Color palette
-```{r}
-## custom colors
-my_pal <- carto_pal(n = 5, name = "Vivid")
-```
-
-```{r}
-# Create 100 random seeds for training/test split
-# Split data into training and test
-# Set training control variable
-# Iterate through input features group (Baseline vs. All)
-# Iterate through sampling methods ()
-# Iterate through machine learning model types
-```
 
 ### Machine learning model building
 ```{r}
-bootstrap = sample(1:1000, 1)
-input_features = c("Baseline") #c("Baseline", "All")
-imbalance = c("up") #c("none", "weighted", "up", "smote", "rose")
+bootstrap = sample(1:100, 100)
+input_features = c("Baseline", "All")
+imbalance = c("none", "weighted", "up", "smote", "rose")
 
 results_compiled <- data.frame(bootstrap = integer(), input_features = character(), imbalance = character(), mlMethod = character, time.start = double(), time.end = double(), Precision = double(), Recall = double(), F1 = double(), BalancedAccuracy = double())
 
@@ -135,7 +102,7 @@ for (i in bootstrap) {
       
       for (m in mlMethod) {
         start <- Sys.time()
-        cl <- makePSOCKcluster(detectCores()-1) # Reserve 1 core for operating system
+        cl <- makePSOCKcluster(detectCores()) 
         registerDoParallel(cl) # Start parallel processing
         set.seed(123)
         if (m[[1]] == "glm" | m[[1]] == "treebag") { # these ML algorithms do not have tuning parameters
@@ -170,6 +137,7 @@ for (i in bootstrap) {
                               F1 = confusionMatrix_output$byClass[["F1"]],
                               BalancedAccuracy = confusionMatrix_output$byClass[["Balanced Accuracy"]])
         results_compiled <- rbind(results_compiled, results)
+        write_csv(results_compiled, "../data/results_compiled.csv")
       }
     }
   }
@@ -182,4 +150,11 @@ for (i in bootstrap) {
 write_csv(results_compiled, "../data/results_compiled.csv")
 ```
 
+```{r}
+results_compiled$elapsed <- results_compiled$time.end - results_compiled$time.start
+
+ggplot(results_compiled, aes(x = elapsed, y = BalancedAccuracy)) +
+  geom_point() +
+  theme_minimal()
+```
 

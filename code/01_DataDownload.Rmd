@@ -15,8 +15,6 @@ Load libraries
 library(tidyverse)
 library(knitr)
 library(scales)
-library(effectsize)
-library(rstatix)
 
 options(es.use_symbols = TRUE)
 ```
