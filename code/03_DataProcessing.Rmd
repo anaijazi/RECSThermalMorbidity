@@ -1,0 +1,66 @@
+---
+title: "Data Processing"
+author: "Arfa Aijazi"
+date: "November 2023"
+output: html_document
+---
+
+This script prepares the merged RECS data in preparation for machine learning
+
+### Setup
+Load libraries
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(caret)
+
+options(es.use_symbols = TRUE)
+```
+
+Import data
+```{r}
+recs_subset <- read.csv("../data/recs_subset.csv", stringsAsFactors = TRUE)
+
+y <- recs_subset$TEMPMA
+```
+
+Zero- and Near Zero-Variance Predictors
+
+```{r}
+# nzv <- nearZeroVar(recs_subset, saveMetrics = TRUE, freqCut = 20)
+nzv <- nearZeroVar(recs_subset, freqCut = 20) #
+recs_nzv <- recs_subset[,-nzv]
+recs_nzv$TEMPMA <- y # add TEMPMA back
+```
+
+Removes LARGEHOUSE AND PAYSUTL
+
+Correlated predictors
+```{r}
+descrCor <-  cor(recs_nzv)
+highlyCorDescr <- findCorrelation(descrCor, cutoff = .7)
+```
+
+No highly correlated variables
+
+Linear dependencies
+```{r}
+comboInfo <- findLinearCombos(recs_nzv)
+```
+
+No linearly combinations
+
+Centering and scaling
+```{r}
+recs_input <- recs_nzv %>%
+  mutate(TEMPMA = ifelse(TEMPMA == 1, "TEMPMA", "NONE")) %>%
+  mutate(TEMPMA = factor(TEMPMA, levels = c("TEMPMA", "NONE")))
+
+preProcValues <- preProcess(recs_input, method = c("center", "scale"))
+
+recs_standardized <- predict(preProcValues, recs_nzv)
+```
+
+### Export
+```{r}
+write_csv(recs_standardized, "../data/recs_standardized.csv")
+```

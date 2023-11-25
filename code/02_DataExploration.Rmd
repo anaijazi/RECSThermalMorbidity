@@ -1,0 +1,91 @@
+---
+title: "Data Exploration"
+author: "Arfa Aijazi"
+date: "October 2023"
+output:
+  html_document:
+    df_print: paged
+---
+
+This script explores the merged RECS data by comparing variable means between homes with and without temperature-related morbidity
+
+### Setup
+Load libraries
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(matrixTests)
+library(effectsize)
+
+options(es.use_symbols = TRUE)
+```
+
+Custom plot theme
+```{r message=FALSE, warning=FALSE, include=FALSE}
+theme_custom = function() {
+  theme_minimal() %+replace%
+    theme(legend.position = "top") +
+    theme(panel.grid = element_blank()) +
+    theme(strip.background = element_blank()) +
+    theme(panel.border = element_blank()) +
+    theme(panel.background = element_blank()) +
+    theme(legend.title = element_blank()) +
+    theme(axis.title = element_blank()) +
+    theme(text = element_text(size = 7, colour = "#000000"))
+}
+```
+
+Color palette
+```{r}
+## custom colors
+my_pal <- rcartocolor::carto_pal(n = 5, name = "Vivid")
+```
+
+Import data
+```{r}
+recs_subset <- read.csv("../data/recs_subset.csv", stringsAsFactors = TRUE) %>%
+  mutate(TEMPMA = ifelse(TEMPMA == 1, "TEMPMA", "NONE")) %>%
+  mutate(TEMPMA = factor(TEMPMA, levels = c("TEMPMA", "NONE")))
+
+variables <- read_csv("../data/variables.csv")
+```
+### Data exploration
+Compare means between homes with and without temperature-related morbidity
+```{r}
+TEMPMA <- recs_subset[recs_subset$TEMPMA == "TEMPMA", -ncol(recs_subset)]
+NONE <- recs_subset[recs_subset$TEMPMA == "NONE", -ncol(recs_subset)]
+
+t.test_result <- col_t_welch(TEMPMA, NONE) %>%
+  rownames_to_column(var = "variable")
+m = nrow(t.test_result)
+adj.p <- 0.05/m
+
+t.test_result$adj.sig <- ifelse(t.test_result$pvalue < adj.p, "*", "")
+effect.d <- t_to_d(t = t.test_result$statistic, df_error = t.test_result$df)
+
+t.test_result <- cbind(t.test_result, effect.d) 
+
+t.test_sig <- t.test_result %>%
+  filter(adj.sig == "*") %>%
+  mutate(mag.d = abs(d), mag.CI_low = abs(CI_low), mag.CI_high = abs(CI_high)) %>%
+  arrange(-mag.d) %>%
+  inner_join(variables, by = join_by(variable == VARIABLE))
+```
+
+Plot effect sizes of significant variables
+```{r}
+ggplot(t.test_sig, aes(x = reorder(LONG.NAME, mag.d), y = mag.d, shape = CATEGORY.5, colour = CATEGORY.5)) +
+  scale_colour_manual(values = my_pal) +
+  scale_shape_manual(values = c(0, 1, 2, 5)) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.41, ymax = 1.15, alpha = 0.2, fill = "#e7d4e8") +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 1.15, ymax = 2.7, alpha = 0.2, fill = "#c2a5cf") +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 2.7, ymax = Inf, alpha = 0.2, fill = "#9970ab") +
+  annotate("text", x = Inf, y = 0.78, label = "RMPE", size = 2, colour = "#4d4d4d") +
+  annotate("text", x = Inf, y = 1.925, label = "Moderate effect", size = 2, colour = "#4d4d4d") +
+  annotate("text", x = Inf, y = 3.6, label = "Strong effect", size = 2, colour = "#4d4d4d") +
+  geom_hline(yintercept = c(0.41, 1.15, 2.70), colour = "#bbbbbb", linewidth = 0.125) +
+  ylim(0,4.5) +
+  geom_errorbar(aes(ymin = mag.CI_low, ymax = mag.CI_high), width = 0.2, linewidth = .25, colour = "#000000" ) +
+  geom_point(size = 2) +
+  coord_flip() +
+  theme_custom()
+```

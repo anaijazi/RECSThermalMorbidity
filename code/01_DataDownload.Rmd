@@ -152,45 +152,6 @@ Merge 2015 and 2020 data sets and group temperature-related morbidity
 recs_all <- full_join(recs_2015_sub, recs_2020_sub) %>%
   mutate(TEMPMA = ifelse(HOTMA == 1 | COLDMA == 1, 1, 0))
 ```
-### Data visualization
-Tally
-```{r}
-recs_temp <- recs_all %>%
-  select(YEAR, HOTMA, COLDMA, TEMPMA) %>%
-  group_by(YEAR) %>%
-  summarise(HOTMA = sum(HOTMA), COLDMA = sum(COLDMA), TEMPMA = sum(TEMPMA))
-```
-
-#### Temperature-related morbidity
-```{r}
-recs_temp_morb <- recs_all %>%
-  select(YEAR, HOTMA, COLDMA, TEMPMA, NWEIGHT) %>%
-  pivot_longer(cols = ends_with("MA"), names_to = "TYPE", values_to = "VALUE") %>%
-  mutate(VALUE_adj = VALUE*NWEIGHT) %>%
-  select(-VALUE) %>%
-  group_by(YEAR, TYPE) %>%
-  summarise(ISSUE = sum(VALUE_adj)) %>%
-  mutate(ISSUE = round(ISSUE)) %>%
-  mutate(YEAR = factor(YEAR)) %>%
-  mutate(LABEL = case_when(TYPE == "TEMPMA" ~ "Any temperature-related morbidity",
-                           TYPE == "HOTMA" ~ "Heat-related morbidity only",
-                           TYPE == "COLDMA" ~ "Cold-related morbidity only"))
-
-total_households <- recs_all %>%
-  group_by(YEAR) %>%
-  
-
-ggplot(recs_temp_morb, aes(x = fct_reorder(LABEL, ISSUE), y = ISSUE, fill = YEAR)) + 
-  geom_col(position = "dodge2") + 
-  scale_fill_manual(values = plot_colors) +
-  scale_y_continuous(labels = comma) +
-  coord_flip() +
-  annotate("text", x = 0.75, y = 1700000, label = paste0("Total U.S. Households\n", total_households$YEAR[1], ": ", comma(round(total_households$households[1])), "\n", total_households$YEAR[2], ": ", comma(round(total_households$households[2]))), hjust = 1, size = 2) +
-  theme_custom()
-```
-Although temperature-related morbidity affected around 1.5 million households in 2015 and 2020, this represents less than 1.5% of total U.S. households represented in the RECS data set. Temperature-related morbidity and mortality events are often underreported because extreme heat or cold can be contributing factor to pre-existing health conditions. Overall, extreme cold affected more households than extreme heat, which is consistent with other reporting. A large data imbalance can lead to poor machine learning model performance. To combat this issue, our analysis will group heat and cold-related morbidity. Further the below data visualizations will explore whether we can further subset the data set by excluding features that do not contribute to heat or cold-related morbidity. 
-
-In merged data set, recode household characteristics to further explore features relevant to temperature-related morbidity. 
 
 ```{r}
 recs_recode <- recs_all %>%
@@ -223,21 +184,7 @@ recs_recode <- recs_all %>%
                              WINDOWS == 5 ~ 16,
                              WINDOWS == 6 ~ 20,
                              WINDOWS == 7 ~ 30)) %>%
-  mutate(THERMALMASS = case_when(WALLTYPE == 1 ~ 1,
-                                 WALLTYPE == 6 ~ 1,
-                                 WALLTYPE == 7 ~ 1,
-                                 ROOFTYPE == 1 ~ 1,
-                                 ROOFTYPE == 7 ~ 1,
-                                 TRUE ~ 0)) %>%
-  mutate(HOUSEHOLDER_RACE = case_when(HOUSEHOLDER_RACE == 1 ~ "White",
-                                      HOUSEHOLDER_RACE == 2 ~ "Black",
-                                      HOUSEHOLDER_RACE == 3 ~ "AmericanIndian",
-                                      HOUSEHOLDER_RACE == 4 ~ "Asian",
-                                      HOUSEHOLDER_RACE == 5 ~ "NativeHawaiian",
-                                      HOUSEHOLDER_RACE == 6 ~ "OtherRace",
-                                      HOUSEHOLDER_RACE == 7 ~ "MixedRace")) %>%
   mutate(MOBILE = ifelse(TYPEHUQ == 1, 1, 0)) %>%
-  mutate(APT = ifelse(TYPEHUQ >= 4, 1, 0)) %>%
   mutate(WALLTYPE = case_when(WALLTYPE == 1 ~ "Brick",
                               WALLTYPE == 2 ~ "Wood",
                               WALLTYPE == 3 ~ "Siding",
@@ -246,60 +193,47 @@ recs_recode <- recs_all %>%
                               WALLTYPE == 6 ~ "Stone",
                               WALLTYPE == 7 ~ "Concrete",
                               WALLTYPE == 99 ~ "Other")) %>%
+  mutate(THERMALMASS.WALL = case_when(WALLTYPE == "Brick" ~ 0.143, # Based on thermal mass calculation in separete spreadsheet
+                                      WALLTYPE == "Wood" ~ 0.013,
+                                      WALLTYPE == "Siding" ~ 0.004,
+                                      WALLTYPE == "Stucco" ~ 0.024,
+                                      WALLTYPE == "Stone" ~ 0.202,
+                                      WALLTYPE == "Concrete" ~ 0.410,
+                                      TRUE ~ 0)) %>%
   mutate(ROOFTYPE = case_when(ROOFTYPE == 1 ~ "CeramicTiles",
                               ROOFTYPE == 2 ~ "WoodShingle",
                               ROOFTYPE == 3 ~ "Metal",
                               ROOFTYPE == 4 ~ "SlateShake",
-                              ROOFTYPE == 5 ~ "Singles",
+                              ROOFTYPE == 5 ~ "Shingles",
                               ROOFTYPE == 6 ~ "ConcreteTiles",
                               ROOFTYPE == 99 ~ "Other",
                               ROOFTYPE == -2 ~ "NoRoof")) %>%
-  mutate(WINFRAME = case_when(WINFRAME == 1 ~ "Wood",
-                              WINFRAME == 2 ~ "Metal",
-                              WINFRAME == 3 ~ "Vinyl",
-                              WINFRAME == 4 ~ "Composite",
-                              WINFRAME == 5 ~ "Fiberglass")) %>%
-  mutate(ACEQUIPAGE = case_when(ACEQUIPAGE == 1 ~ 0,
-                                ACEQUIPAGE == 2 ~ 2,
-                                ACEQUIPAGE == 3 ~ 5,
-                                ACEQUIPAGE == 4 ~ 10,
-                                ACEQUIPAGE == 5 ~ 15,
-                                ACEQUIPAGE == 6 ~ 20,
-                                TRUE ~ -2)) %>%
-   mutate(EQUIPAGE = case_when(EQUIPAGE == 1 ~ 0,
-                                EQUIPAGE == 2 ~ 2,
-                                EQUIPAGE == 3 ~ 5,
-                                EQUIPAGE == 4 ~ 10,
-                                EQUIPAGE == 5 ~ 15,
-                                EQUIPAGE == 6 ~ 20,
-                                TRUE ~ -2)) %>%
-  mutate(SOLAR = ifelse(SOLAR == 1, 1, 0)) %>%
-  mutate(BACKUP = ifelse(BACKUP== 1, 1, 0)) %>%
-  mutate(NOACDAYS = ifelse(NOACDAYS == -2, 0, NOACDAYS)) %>%
-  mutate(NOHEATDAYS = ifelse(NOHEATDAYS == -2, 0, NOHEATDAYS)) %>%
-  mutate(NOHEATFUEL = ifelse(NOHEATEL == 1 | NOHEATNG == 1 | NOHEATBULK == 1, 1, 0)) %>%
-  mutate(COOLTYPE = case_when(COOLTYPE == 1 ~ "CentralAir",
-                              COOLTYPE == 2 ~ "WindowWall",
-                              COOLTYPE == 3 ~ "Both",
-                              COOLTYPE == 6 ~ "Swamp",
-                              COOLTYPE == -2 & AIRCOND == 0 ~ "None")) %>%
-  mutate(EQUIPM = case_when(EQUIPM == 2 ~ "SteamHW",
-                            EQUIPM == 3 ~ "CentralFurnace",
-                            EQUIPM == 4 ~ "HeatPump",
-                            EQUIPM == 5 ~ "BuiltInElectric",
-                            EQUIPM == 6 ~ "BuiltInFurnace",
-                            EQUIPM == 7 ~ "BuiltInGas",
-                            EQUIPM == 8 ~ "WoodStove",
-                            EQUIPM == 9 ~ "Fireplace",
-                            EQUIPM == 10 ~ "PortableElectric",
-                            EQUIPM == 99 ~ "Other",
-                            EQUIPM == -2 ~ "None")) %>%
+  mutate(THERMALMASS.ROOF = case_when(ROOFTYPE == "CeramicTiles" ~ 0.008, # Based on thermal mass calculation in seperate spre
+                                      ROOFTYPE == "WoodShingle" ~ 0.013,
+                                      ROOFTYPE == "Metal" ~ 0.001,
+                                      ROOFTYPE == "SlateShake" ~ 0.044,
+                                      ROOFTYPE == "Shingles" ~ 0.069,
+                                      ROOFTYPE == "ConcreteTiles" ~ 0.038,
+                                      TRUE ~ 0)) %>%
+  mutate(THERMALMASS.WALL = ifelse(ADQINSUL <= 1, THERMALMASS.WALL, 0)) %>%
+  mutate(THERMALMASS.ROOF = ifelse(ADQINSUL <= 1, THERMALMASS.ROOF, 0)) %>%
+  mutate(COOLTYPE = case_when(COOLTYPE == 1 ~ 1,
+                              COOLTYPE == 2 ~ 0.5,
+                              COOLTYPE == 3 ~ 1,
+                              COOLTYPE == 6 ~ 0.5,
+                              COOLTYPE == -2 & AIRCOND == 0 ~ 0)) %>%
+  mutate(EQUIPM = case_when(EQUIPM == 2 ~ 1,
+                            EQUIPM == 3 ~ 1,
+                            EQUIPM == 4 ~ 1,
+                            EQUIPM == 5 ~ 1,
+                            EQUIPM == 6 ~ 1,
+                            EQUIPM == 7 ~ 1,
+                            EQUIPM == 8 ~ 0.5,
+                            EQUIPM == 9 ~ 0.5,
+                            EQUIPM == 10 ~ 0.5,
+                            EQUIPM == 99 ~ 0,
+                            EQUIPM == -2 ~ 0)) %>%
   mutate(EMPLOYHH = ifelse(EMPLOYHH == 2, 0.5, EMPLOYHH)) %>% # Part-time employment
-  mutate(KOWNRENT = case_when(KOWNRENT == 1 ~ "Own",
-                              KOWNRENT == 2 ~ "Rent",
-                              KOWNRENT == 3 ~ "Neither")) %>%
-  mutate(NOAC = ifelse(NOACDAYS > 0 | NOACEL == 1 | NOACBROKE == 1, 1, 0)) %>%
-  mutate(NOHEAT = ifelse(NOHEATDAYS > 0 | NOHEATFUEL == 1 | NOHEATBROKE == 1, 1, 0)) %>%
   mutate(DRAFTY = (DRAFTY*-1) + 4) %>%
   mutate(OFFGRID = ifelse(BACKUP == 1 | SOLAR == 1, 1, 0)) %>%
   mutate(ENRGINSEC = case_when(NOACEL == 1 ~ 1,
@@ -312,15 +246,16 @@ recs_recode <- recs_all %>%
                                SCALEG != 0 ~ 1,
                                SCALEE != 0 ~ 1,
                                TRUE ~ 0
-                               ))
+                               )) %>%
+  mutate(WWR = WINDOWS/TOTROOMS) %>%
+  mutate(NUMFANS = NUMCFAN + NUMFLOORFAN)
 ```
 
 ```{r}
 recs_subset <- recs_recode %>%
-  select(DBT1, DBT99, NONWHITE, OVER65, LIVESALONE, LARGEHOUSE, POVERTY, EMPLOYHH, HIGHSCHOOL, RENT, PAYSUTL, TYPEHUQ, YEARMADERANGE, WALLTYPE, ROOFTYPE, ADQINSUL, DRAFTY, WINDOWS, WINFRAME, TYPEGLASS, AIRCOND, HEATHOME, COOLTYPE, EQUIPM, ENRGINSEC, NUMCFAN, NUMFLOORFAN, OFFGRID, TEMPMA)
+  select(DBT1, DBT99, NONWHITE, OVER65, LIVESALONE, LARGEHOUSE, POVERTY, EMPLOYHH, HIGHSCHOOL, RENT, PAYSUTL, APARTMENT, MOBILE, YEARMADERANGE, THERMALMASS.WALL, THERMALMASS.ROOF, ADQINSUL, DRAFTY, WWR, TYPEGLASS, COOLTYPE, EQUIPM, ENRGINSEC, NUMFANS, OFFGRID, TEMPMA)
 ```
 
-No filtering based on categorical variables
 ### Export
 ```{r}
 write_csv(recs_subset, "../data/recs_subset.csv")

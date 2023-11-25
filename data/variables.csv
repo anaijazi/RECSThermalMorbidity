@@ -1,29 +1,26 @@
-﻿ORDER,VARIABLE,LONG.NAME,CATEGORY.6,CATEGORY.4,CLIMATE,DEMOGRAPHICS,BUILDING.CONSTRUCTION,BUILDING.ENVELOPE,BUILDING.HVAC,BUILDING.ALL,ALL
-1,DBT1,Cooling design temperature,Climate,Climate,1,0,0,0,0,0,1
-2,DBT99,Heating design temperature,Climate,Climate,1,0,0,0,0,0,1
-3,NONWHITE,Household race is non-white or ethnicity is of Spanish descent,Demographic,Demographic,0,1,0,0,0,0,1
-4,SDESCENT,Hispanic,Demographic,Demographic,0,1,0,0,0,0,1
-5,OVER65,Respondent or household member age is above 65,Demographic,Demographic,0,1,0,0,0,0,1
-6,LIVESALONE,Number of household members = 1,,,,,,,,,
-7,LARGEHOUSE,Number of household members >= 7,,,,,,,,,
-8,HIGHSCHOOL,Highest level of education completed by respondent high school or less,Demographic,Demographic,0,1,0,0,0,0,1
-9,EMPLOYHH,Respondent employment status,Demographic,Demographic,0,1,0,0,0,0,1
-10,POVERTY,Poverty based on U.S. Census Bureau threshold,Demographic,Demographic,0,1,0,0,0,0,1
-11,RENT,Household pays rents,Demographic,Demographic,0,1,0,0,0,0,1
-12,PAYSUTL,"Household fully pays for electricity, natural gas, propane, and/or fuel oil",Demographic,Demographic,0,1,0,0,0,0,1
-13,NGPAY,Household fully pays natural gas bills,Demographic,Demographic,0,1,0,0,0,0,1
-14,TYPEHUQ,Construction type,Construction,Building,0,0,1,0,0,1,1
-15,YEARMADERANGE,Construction age,Construction,Building,0,0,1,0,0,1,1
-16,WALLTYPE,Wall type,Envelope,Building,0,0,0,1,0,1,1
-17,ROOFTYPE,Roof type,Envelope,Building,0,0,0,1,0,1,1
-18,ADQINSUL,Insulation level,Envelope,Building,0,0,0,1,0,1,1
-19,DRAFTY,Infiltration,Envelope,Building,0,0,0,1,0,1,1
-20,WINDOWS,Window-to-wall ratio,Envelope,Building,0,0,0,1,0,1,1
-21,WINFRAME,Window frame type,Envelope,Building,0,0,0,1,0,1,1
-22,TYPEGLASS,Window glazing type,Envelope,Building,0,0,0,1,0,1,1
-23,COOLTYPE,AC type,HVAC,Building,0,0,0,0,1,1,1
-24,EQUIPM,Primary heating type,HVAC,Building,0,0,0,0,1,1,1
-25,ENRGINSEC,Household reported difficulty paying energy bills; repairing or replacing broken heating or cooling equipment; or that they had kept their home at unsafe,HVAC,Building,0,0,0,0,1,1,1
-26,NUMCFAN,Number of ceiling fans,HVAC,Building,0,0,0,0,1,1,1
-27,NUMFLOORFAN,Number of floor fans,HVAC,Building,0,0,0,0,1,1,1
-28,OFFGRID,Has back-up power or on-site solar,HVAC,Building,0,0,0,0,1,1,1
+﻿ORDER,VARIABLE,LONG.NAME,CATEGORY.5,CATEGORY.3,BASELINE,ALL
+1,DBT1,Cooling design temperature,Climate,Climate,1,1
+2,DBT99,Heating design temperature,Climate,Climate,1,1
+3,NONWHITE,Non-white race or Hispanic ethnicity,Demographic,Demographic,1,1
+4,OVER65,Older than 65,Demographic,Demographic,1,1
+5,LIVESALONE,Lives alone,Demographic,Demographic,1,1
+6,LARGEHOUSE,Large household,Demographic,Demographic,1,1
+7,HIGHSCHOOL,Education level,Demographic,Demographic,1,1
+8,EMPLOYHH,Employment,Demographic,Demographic,1,1
+9,POVERTY,Poverty,Demographic,Demographic,1,1
+10,RENT,Household pays rents,Demographic,Demographic,1,1
+11,PAYSUTL,Pays utility or fuel,Demographic,Demographic,1,1
+12,APT,Apartment,Construction,Building,0,1
+13,MOBILE,Mobile home,Construction,Building,0,1
+14,YEARMADERANGE,Construction age,Construction,Building,0,1
+15,THERMALMASS.Wall,Thermally massive wall,Envelope,Building,0,1
+16,THERMALMASS.ROOF,Thermally massive roof,Envelope,Building,0,1
+17,ADQINSUL,Insulation level,Envelope,Building,0,1
+18,DRAFTY,Infiltration,Envelope,Building,0,1
+19,WWR,Window-to-wall ratio,Envelope,Building,0,1
+20,TYPEGLASS,Window glazing type,Envelope,Building,0,1
+21,COOLTYPE,AC type,HVAC,Building,0,1
+22,EQUIPM,Heating type,HVAC,Building,0,1
+23,ENRGINSEC,Energy insecurity,HVAC,Building,0,1
+24,NUMFANS,Number of ceiling fans,HVAC,Building,0,1
+25,OFFGRID,Back-up power or on-site solar,HVAC,Building,0,1
