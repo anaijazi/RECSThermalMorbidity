@@ -102,25 +102,31 @@ for (i in bootstrap) {
       
       for (m in mlMethod) {
         start <- Sys.time()
-        cl <- makePSOCKcluster(detectCores()) 
-        registerDoParallel(cl) # Start parallel processing
-        set.seed(123)
+       
         if (m[[1]] == "glm" | m[[1]] == "treebag") { # these ML algorithms do not have tuning parameters
-          train_fit <- train(TEMPMA ~ .,
+           cl <- makePSOCKcluster(detectCores())
+           registerDoParallel(cl) # Start parallel processing
+           set.seed(123)
+           train_fit <- train(TEMPMA ~ .,
                           data = training,
                           method = m[[1]],
                           metric = "AUC",
                           trControl = ctrl)
+          stopCluster(cl) 
         }
         else {
+          cl <- makePSOCKcluster(detectCores())
+          registerDoParallel(cl) # Start parallel processing
+          set.seed(123)
           train_fit <- train(TEMPMA ~ .,
                           data = training,
                           method = m[[1]],
                           metric = "AUC",
                           trControl = ctrl,
                           tuneGrid = data.frame(m[-1]))
+          stopCluster(cl) 
         }
-        stopCluster(cl) # End parallel processing
+        # End parallel processing
         end <- Sys.time()
         
         predictions <- predict(train_fit, testData)
@@ -148,13 +154,5 @@ for (i in bootstrap) {
 ### Export
 ```{r}
 write_csv(results_compiled, "../data/results_compiled.csv")
-```
-
-```{r}
-results_compiled$elapsed <- results_compiled$time.end - results_compiled$time.start
-
-ggplot(results_compiled, aes(x = elapsed, y = BalancedAccuracy)) +
-  geom_point() +
-  theme_minimal()
 ```
 
