@@ -1,0 +1,120 @@
+---
+title: "Population estimate"
+author: "Arfa Aijazi"
+date: "November 2023"
+output: html_document
+---
+### Setup
+```{r}
+library(survey)
+library(dplyr)
+library(scales)
+```
+
+Custom plot theme
+```{r message=FALSE, warning=FALSE, include=FALSE}
+theme_custom = function() {
+  theme_minimal() %+replace%
+    theme(legend.position = "top") +
+    theme(panel.grid = element_blank()) +
+    theme(strip.background = element_blank()) +
+    theme(panel.border = element_blank()) +
+    theme(panel.background = element_blank()) +
+    theme(legend.title = element_blank()) +
+    theme(axis.title.y = element_blank()) +
+    theme(text = element_text(size = 7, colour = "#000000"))
+}
+```
+
+Color palette
+```{r}
+## custom colors
+my_pal <- rcartocolor::carto_pal(n = 3, name = "Pastel")
+```
+
+### Load data
+Load raw microdata files from the Energy Information Administration (EIA) website
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Pull data from EIA website
+# data_2015 = "https://www.eia.gov/consumption/residential/data/2015/csv/recs2015_public_v4.csv"
+# data_2020 = "https://www.eia.gov/consumption/residential/data/2020/csv/recs2020_public_v5.csv"
+
+# Predownloaded data file
+data_2015 = "../data/recs2015_public_v4.csv"
+data_2020 = "../data/recs2020_public_v5.csv"
+
+recs_2015 <- read_csv(data_2015)
+recs_2020 <- read_csv(data_2020)
+```
+
+2015 Survey analysis based on: https://www.eia.gov/consumption/residential/data/2015/pdf/microdata_v3.pdf
+```{r}
+sampweights_2015 <- recs_2015$NWEIGHT
+brrwts <- recs_2015[,grepl("^BRRWT", names(recs_2015))]
+des <- svrepdesign(weights = sampweights_2015, repweights = brrwts, type = "Fay", rho = 0.5, mse = TRUE, data = recs_2015)
+
+HOTMA_2015 <- as.data.frame(svytotal(~HOTMA, des))
+HOTMA_2015$CI <- HOTMA_2020$SE*1.96
+
+COLDMA_2015 <- as.data.frame(svytotal(~COLDMA, des))
+COLDMA_2015$CI <- COLDMA_2020$SE*1.96
+
+results_2015 <- rbind(HOTMA_2015, COLDMA_2015) %>%
+  rownames_to_column(var = "variable") %>%
+  mutate(year = 2015)
+
+```
+
+2020 Survey analysis based on: https://www.eia.gov/consumption/residential/data/2020/pdf/microdata-guide.pdf
+```{r}
+repweights_2020 <- select(recs_2020, NWEIGHT1:NWEIGHT60)
+RECS <- svrepdesign(data = recs_2020,
+                    weight = ~NWEIGHT,
+                    repweights = repweights_2020,
+                    type = "JK1",
+                    combined.weights = TRUE,
+                    scale = (ncol(repweights_2020)-1)/ncol(repweights_2020),
+                    mse = TRUE)
+
+HOTMA_2020 <- as.data.frame(svytotal(~HOTMA, RECS))
+HOTMA_2020$CI <- HOTMA_2020$SE*1.96
+
+COLDMA_2020 <- as.data.frame(svytotal(~COLDMA, RECS))
+COLDMA_2020$CI <- COLDMA_2020$SE*1.96
+
+results_2020 <- rbind(HOTMA_2020, COLDMA_2020) %>%
+  rownames_to_column(var = "variable") %>%
+  mutate(year = 2020)
+```
+
+```{r}
+results_all <- results_2015 %>%
+  full_join(results_2020) %>%
+  mutate(year = factor(year)) %>%
+  pivot_wider(names_from = variable, values_from = c(total, SE, CI)) %>%
+  mutate(total_TEMPMA = total_HOTMA + total_COLDMA) %>%
+  mutate(SE_TEMPMA = sqrt(SE_HOTMA^2 + SE_COLDMA^2)) %>%
+  mutate(CI_TEMPMA = 1.96*SE_TEMPMA) %>%
+  pivot_longer(cols = ends_with("MA"), names_to = c("metric", "variable"), names_sep = "_", values_to = "value") %>%
+  pivot_wider(names_from = metric, values_from = value) %>%
+  mutate(label = case_when(variable == "TEMPMA" ~ "Any temperature",
+                           variable == "HOTMA" ~ "Heat-related",
+                           variable == "COLDMA" ~ "Cold-related"))
+```
+
+Population estimates plot
+```{r}
+ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill = year)) +
+  scale_fill_manual(values = my_pal) +
+  scale_y_continuous(label = comma) +
+  geom_bar(stat = "identity", position = position_dodge(), width = 0.8) +
+  geom_errorbar(aes(ymin = total-CI, ymax = total+CI), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
+  annotate("text", x = "Heat-related", y = 2000000, label = "Total U.S. households\n2015: 118.2 million\n2020:123.5 million", size = 2) +
+  theme_custom() +
+  coord_flip() +
+  ylab("Estimated number of U.S. households affected")
+```
+```{r}
+ggsave("Figure1_PopulationEstimate.pdf", units = "in", width = 6.4, height = 3)
+```
+
