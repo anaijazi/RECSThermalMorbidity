@@ -4,6 +4,8 @@ author: "Arfa Aijazi"
 date: "November 2023"
 output: html_document
 ---
+This script estimates the population prevalence of temperature-related morbidity
+
 ### Setup
 ```{r}
 library(survey)
@@ -114,6 +116,7 @@ ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill 
   coord_flip() +
   ylab("Estimated number of U.S. households affected")
 ```
+
 ```{r}
 ggsave("Figure1_PopulationEstimate.pdf", units = "in", width = 6.4, height = 3)
 ```
