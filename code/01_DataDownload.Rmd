@@ -19,22 +19,6 @@ library(scales)
 options(es.use_symbols = TRUE)
 ```
 
-Set plot theme and colors
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-theme_custom = function() {
-  theme_minimal() %+replace%
-    theme(legend.position = "top") +
-    theme(panel.grid = element_blank()) +
-    theme(strip.background = element_blank()) +
-    theme(panel.border = element_blank()) +
-    theme(panel.background = element_blank()) +
-    theme(legend.title = element_blank()) +
-    theme(axis.title = element_blank()) +
-    theme(text = element_text(size = 7, colour = "#000000"))
-}
-plot_colors <- c("#4477AA", "#CCBB44", "#66CCEE", "#228833", "#EE6677", "#AA3377")
-```
-
 ### Data processing
 Load raw microdata files from the Energy Information Administration (EIA) website
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
