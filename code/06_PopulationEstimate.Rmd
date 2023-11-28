@@ -24,14 +24,16 @@ theme_custom = function() {
     theme(panel.background = element_blank()) +
     theme(legend.title = element_blank()) +
     theme(axis.title.y = element_blank()) +
-    theme(text = element_text(size = 7, colour = "#000000"))
+    theme(text = element_text(size = 7, colour = "#000000")) +
+    theme(plot.margin = unit(c(0,0,0,0), 'lines'))
 }
 ```
 
 Color palette
 ```{r}
 ## custom colors
-my_pal <- rcartocolor::carto_pal(n = 3, name = "Pastel")
+my_pal <- rcartocolor::carto_pal(n = 4, name = "Pastel")
+my_pal2 <- c(my_pal[1], my_pal[3])
 ```
 
 ### Load data
@@ -56,10 +58,10 @@ brrwts <- recs_2015[,grepl("^BRRWT", names(recs_2015))]
 des <- svrepdesign(weights = sampweights_2015, repweights = brrwts, type = "Fay", rho = 0.5, mse = TRUE, data = recs_2015)
 
 HOTMA_2015 <- as.data.frame(svytotal(~HOTMA, des))
-HOTMA_2015$CI <- HOTMA_2020$SE*1.96
+HOTMA_2015$CI <- HOTMA_2015$SE*1.96
 
 COLDMA_2015 <- as.data.frame(svytotal(~COLDMA, des))
-COLDMA_2015$CI <- COLDMA_2020$SE*1.96
+COLDMA_2015$CI <- COLDMA_2015$SE*1.96
 
 results_2015 <- rbind(HOTMA_2015, COLDMA_2015) %>%
   rownames_to_column(var = "variable") %>%
@@ -107,7 +109,7 @@ results_all <- results_2015 %>%
 Population estimates plot
 ```{r}
 ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill = year)) +
-  scale_fill_manual(values = my_pal) +
+  scale_fill_manual(values = my_pal2) +
   scale_y_continuous(label = comma) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.8) +
   geom_errorbar(aes(ymin = total-CI, ymax = total+CI), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
@@ -118,6 +120,6 @@ ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill 
 ```
 
 ```{r}
-ggsave("Figure1_PopulationEstimate.pdf", units = "in", width = 6.4, height = 3)
+ggsave("Figure1_PopulationEstimate.pdf", units = "in", width = 6.5, height = 3)
 ```
 

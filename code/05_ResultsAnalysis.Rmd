@@ -11,6 +11,8 @@ This script analyzes the machine learning model results
 library(tidyverse)
 library(scales)
 library(ggpubr)
+library(effectsize)
+library(ggforce)
 ```
 
 Custom plot theme
@@ -24,7 +26,8 @@ theme_custom = function() {
     theme(panel.background = element_blank()) +
     #theme(legend.title = element_blank()) +
     theme(axis.title = element_blank()) +
-    theme(text = element_text(size = 7, colour = "#000000"))
+    theme(text = element_text(size = 7, colour = "#000000")) +
+    theme(plot.margin = unit(c(0,0,0,0), 'lines'))
 }
 ```
 
@@ -34,151 +37,296 @@ Color palette
 my_pal3 <- rcartocolor::carto_pal(n = 3, name = "Pastel")
 my_pal5 <- rcartocolor::carto_pal(n = 5, name = "Pastel")
 my_pal8 <- rcartocolor::carto_pal(n = 9, name = "Pastel")
+my_pal5_2 <- c(my_pal8[4:8])
+my_pal12 <- rcartocolor::carto_pal(n = 12, name = "Pastel")
+
 ```
+
 
 ### Load data
 ```{r}
-results_file <- "../data/results_compiled_20231125.csv"
+results_file1 <- "../data/results_compiled_20231125.csv"
+results_file2 <- "../data/results_compiled_20231126.csv"
 
-results_compiled <- read_csv(results_file) %>%
+results1 <- read_csv(results_file1)
+results2 <- read_csv(results_file2) 
+
+results_compiled <- results1 %>%
+  full_join(results2) %>%
+  rename(mlMethod = mLMethod) %>%
+  distinct(bootstrap, input_features, imbalance, mlMethod, .keep_all = TRUE) %>%
   replace(is.na(.), 0) %>%
   mutate(imbalance = factor(imbalance, levels = c("none", "weighted", "up", "smote", "rose"))) %>%
-  mutate(mLMethod = factor(mLMethod, levels = c("glm", "earth", "pda", "multinom", "treebag", "gbm", "ranger", "nnet"))) %>%
+  mutate(mlMethod = factor(mlMethod, levels = c("glm", "earth", "pda", "multinom", "treebag", "gbm", "ranger", "nnet"))) %>%
   mutate(input_features = factor(input_features, levels = c("Baseline", "All"))) %>%
   arrange(-BalancedAccuracy) %>%
   mutate(Number = row_number()) %>%
   mutate(time.elapsed = time.end - time.start) %>%
-  rename(mlMethod = mLMethod) %>%
-  mutate(mlType = case_when(mlMethod == "glm" ~ "Regression",
-                            mlMethod == "earth" ~ "Regression",
-                            mlMethod == "pda" ~ "Dimensionality reduction",
-                            mlMethod == "multinom" ~ "Dimensionality reduction",
-                            mlMethod == "treebag" ~ "Decision tree",
-                            mlMethod == "gbm" ~ "Ensemble",
-                            mlMethod == "ranger" ~ "Ensemble",
-                            mlMethod == "nnet" ~ "Artificial neural network")) %>%
-  mutate(mlMethod.label = case_when(mlMethod == "glm" ~ "Genarlized linear model",
-                            mlMethod == "earth" ~ "Multivariate adaptive regression spline",
-                            mlMethod == "pda" ~ "Penalized discriminant analysis",
-                            mlMethod == "multinom" ~ "Penalized multinomal regression",
-                            mlMethod == "treebag" ~ "Classification and regression trees",
-                            mlMethod == "gbm" ~ "Gradient boosting machine",
-                            mlMethod == "ranger" ~ "Random forest",
-                            mlMethod == "nnet" ~ "Neural network")) %>%
+  # mutate(time.elapsed = ifelse(mlMethod != "glm" | mlMethod != "treebag", time.elapsed/100, time.elapsed)) %>%
+  mutate(time.elapsed = as.double(time.elapsed)) %>%
+  mutate(mlMethod.label = case_when(mlMethod == "glm" ~ "Generalized linear model (GLM)",
+                            mlMethod == "earth" ~ "Multivariate adaptive regression spline (MARS)",
+                            mlMethod == "pda" ~ "Penalized discriminant analysis (PDA)",
+                            mlMethod == "multinom" ~ "Penalized multinomal regression (PMR)",
+                            mlMethod == "treebag" ~ "Classification and regression trees (CART)",
+                            mlMethod == "gbm" ~ "Gradient boosting machine (GBM)",
+                            mlMethod == "ranger" ~ "Random forest (RF)",
+                            mlMethod == "nnet" ~ "Neural network (NN)")) %>%
+  mutate(mlMethod2 = case_when(mlMethod == "glm" ~ "GLM",
+                            mlMethod == "earth" ~ "MARS",
+                            mlMethod == "pda" ~ "PDA",
+                            mlMethod == "multinom" ~ "PMR",
+                            mlMethod == "treebag" ~ "CART",
+                            mlMethod == "gbm" ~ "GBM",
+                            mlMethod == "ranger" ~ "RF",
+                            mlMethod == "nnet" ~ "NN")) %>%
+    mutate(mlMethod2 = factor(mlMethod2, levels = c("GLM", "MARS", "PDA", "PMR", "CART", "GBM", "RF", "NN"))) %>%
   mutate(imbalance.label = case_when(imbalance == "none" ~ "None",
                                      imbalance == "weighted" ~ "Class weights",
                                      imbalance == "up" ~ "Up-sample",
                                      imbalance == "smote" ~ "SMOTE",
-                                     imbalance == "rose" ~ "ROSE"))
+                                     imbalance == "rose" ~ "ROSE")) %>%
+  mutate(imbalance.label = factor(imbalance.label, levels = c("None", "Class weights", "Up-sample", "SMOTE", "ROSE")))
 ```
 ```{r}
 results_bootstrapped <- results_compiled %>%
-  select(-starts_with("time."), -Number) %>%
-  pivot_longer(cols = Precision:BalancedAccuracy, names_to = "metric", values_to = "value") %>%
+  select(-time.start, -time.end, -Number) %>%
+  pivot_longer(cols = Precision:time.elapsed, names_to = "metric", values_to = "value") %>%
   group_by(input_features, imbalance, mlMethod, metric) %>%
   summarise(mean = mean(value), sd = sd(value), n = n()) %>%
   pivot_wider(names_from = metric, values_from = c(mean, sd)) %>%
   arrange(-mean_BalancedAccuracy) %>%
   ungroup() %>%
-  mutate(Number = row_number()) 
+  mutate(Number = row_number()) %>%
+  mutate(mlMethod2 = case_when(mlMethod == "glm" ~ "GLM",
+                               mlMethod == "earth" ~ "MARS",
+                               mlMethod == "pda" ~ "PDA",
+                               mlMethod == "multinom" ~ "PMR",
+                               mlMethod == "treebag" ~ "CART",
+                               mlMethod == "gbm" ~ "GBM",
+                               mlMethod == "ranger" ~ "RF",
+                               mlMethod == "nnet" ~ "NN")) %>%
+  mutate(mlMethod2 = factor(mlMethod2, levels = c("GLM", "MARS", "PDA", "PMR", "CART", "GBM", "RF", "NN"))) %>%
+  mutate(imbalance.label = case_when(imbalance == "none" ~ "None",
+                                     imbalance == "weighted" ~ "Class weights",
+                                     imbalance == "up" ~ "Up-sample",
+                                     imbalance == "smote" ~ "SMOTE",
+                                     imbalance == "rose" ~ "ROSE")) %>%
+  mutate(imbalance.label = factor(imbalance.label, levels = c("None", "Class weights", "Up-sample", "SMOTE", "ROSE"))) 
+```
+
+Filter converged machine learning models and top performing models from each set of input features
+```{r}
+results_converged <- results_compiled %>%
+  filter(BalancedAccuracy != 0.5000000)
+
+best_all <- results_converged %>%
+  filter(input_features == "All" & imbalance == "rose" & mlMethod == "multinom")
+
+best_baseline <- results_converged %>%
+  filter(input_features == "Baseline" & imbalance == "smote" & mlMethod == "pda")
+
+best_models <- best_all %>%
+  full_join(best_baseline)
+  
 ```
 
 
-Plot by data input features
+### Figure 2: Overall view of machine learning model iterations and best model performance
+Top panel: balanced accuracy
 ```{r}
-plot_BalancedAccuracy_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_BalancedAccuracy, fill = input_features)) +
+plot_BalancedAccuracy_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_BalancedAccuracy, fill = input_features, pattern = imbalance)) +
   scale_fill_manual(values = rev(my_pal3)) +
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_BalancedAccuracy-(2*sd_BalancedAccuracy), ymax = mean_BalancedAccuracy+(2*sd_BalancedAccuracy)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2), labels = percent) +
   coord_cartesian(xlim = c(0,80.5), ylim = c(0,1)) +
   theme_custom() +
+  theme(legend.position = "none") +
+  theme(axis.title.y = element_text()) +
   theme(axis.text.x = element_blank()) +
+  ylab("Balanced Accuracy") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 52.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
+  annotate("rect", xmin = 54.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
 
+best_models_BalancedAccuracy <- best_models %>%
+  pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
+  select(bootstrap, input_features, Metric, Value) %>%
+  pivot_wider(names_from = input_features, values_from = Value) %>%
+  drop_na() %>%
+  filter(Metric == "BalancedAccuracy")
+
+effectsize_BalancedAccuracy <- cohens_d("Baseline", "All", data = best_models_BalancedAccuracy, paired = TRUE)
+
+plot_BalancedAccuracy_best <- ggpaired(best_models_BalancedAccuracy, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
+  geom_hline(yintercept = c(0.5), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), labels = percent) +
+  # stat_compare_means(label = "p.format", method = "t.test", ref.group = "Baseline", size = 3) +
+  annotate("text", x = "All", y = 0.95, label = "13% increase in balanced accuracy\np < 0.001\n|d| = 3.70 (strong effect)", size = 3) +
+  theme_custom() +
+  theme(legend.position = "none") +
+  theme(axis.text.y = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  theme(axis.text.x = element_blank()) +
+  theme(panel.grid.major.y = element_line(colour = "#f7f7f7"))
+
+plot_BalancedAccuracy_combined <- ggarrange(plot_BalancedAccuracy_input, plot_BalancedAccuracy_best, ncol = 2, nrow = 1, widths = c(1,0.5), align = "hv")
+```
+
+Middle panel: Recall
+```{r}
 plot_Recall_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Recall, fill = input_features)) +
   scale_fill_manual(values = rev(my_pal3)) +
-  
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_Recall-(2*sd_Recall), ymax = mean_Recall+(2*sd_Recall)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2), labels = percent) +
   coord_cartesian(xlim = c(0,80.5), ylim = c(0,1)) +
   theme_custom() +
+  theme(legend.position = "none") +
+  theme(axis.title.y = element_text()) +
   theme(axis.text.x = element_blank()) +
+  theme(axis.title.x = element_blank()) +
+  ylab("Recall") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 52.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
+  annotate("rect", xmin = 54.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
 
+best_models_Recall <- best_models %>%
+  pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
+  select(bootstrap, input_features, Metric, Value) %>%
+  pivot_wider(names_from = input_features, values_from = Value) %>%
+  drop_na() %>%
+  filter(Metric == "Recall")
+
+effectsize_Recall <- cohens_d("Baseline", "All", data = best_models_Recall, paired = TRUE)
+
+plot_Recall_best <- ggpaired(best_models_Recall, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
+  geom_hline(yintercept = c(0.5), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), limits = c(0.5,1), labels = percent) +
+  # stat_compare_means(label = "p.format", method = "t.test", ref.group = "Baseline", size = 3) +
+  annotate("text", x = "All", y = 0.95, label = "15% increase in recall\np < 0.001\n|d| = 2.00 (moderate effect)", size = 3) +
+  theme_custom() +
+  theme(legend.position = "none") +
+  theme(axis.text.y = element_blank()) +
+  theme(axis.text.x = element_blank()) +
+  theme(axis.title.x = element_blank()) +
+  ylab("Recall") +
+  theme(panel.grid.major.y = element_line(colour = "#f7f7f7"))
+
+plot_Recall_combined <- ggarrange(plot_Recall_input, plot_Recall_best, ncol = 2, nrow = 1, widths = c(1,0.5), align = "hv")
+```
+
+Bottom panel: Precision
+```{r}
 plot_Precision_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Precision, fill = input_features)) +
   scale_fill_manual(values = rev(my_pal3)) +
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_Precision-(2*sd_Precision), ymax = mean_Precision+(2*sd_Precision)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
-  scale_y_continuous(breaks = seq(0, 0.3, by = 0.1)) +
+  scale_y_continuous(breaks = seq(0, 0.3, by = 0.1), labels = percent) +
   coord_cartesian(xlim = c(0,80.5), ylim = c(0,0.3)) +
   theme_custom() +
-  theme(axis.text.x = element_text()) +
-  theme(axis.title.x = element_text()) +
+  theme(legend.position = "none") +
+  theme(axis.title.y = element_text()) +
+  ylab("Precision") +
   xlab("Machine learning models (ranked by balanced accuracy)") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 52.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
-  
-ggarrange(plot_BalancedAccuracy_input, plot_Recall_input, plot_Precision_input, align = "hv", nrow = 3, ncol = 1, common.legend = TRUE)
-ggsave("Figure2_byInputFeatures.pdf", units = "in", width = 6, height = 4)
+  annotate("rect", xmin = 54.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
+
+best_models_Precision <- best_models %>%
+  pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
+  select(bootstrap, input_features, Metric, Value) %>%
+  pivot_wider(names_from = input_features, values_from = Value) %>%
+  drop_na() %>%
+  filter(Metric == "Precision")
+
+effectsize_Precision <- cohens_d("Baseline", "All", data = best_models_Precision, paired = TRUE)
+
+plot_Precision_best <- ggpaired(best_models_Precision, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
+  geom_hline(yintercept = c(0), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
+  scale_y_continuous(breaks = seq(0, 0.3, by = 0.1), limits = c(0,0.3), labels = percent) +
+  # stat_compare_means(label = "p.format", method = "t.test", ref.group = "Baseline", size = 3) +
+  annotate("text", x = "All", y = 0.1, label = "3% increase in precision\np < 0.001\n|d| = 10.55 (strong effect)", size = 3) +
+  theme_custom() +
+  theme(legend.position = "none") +
+  theme(axis.text.y = element_blank()) +
+  ylab("Precision") +
+  theme(panel.grid.major.y = element_line(colour = "#f7f7f7"))
+
+plot_Precision_combined <- ggarrange(plot_Precision_input, plot_Precision_best, ncol = 2, nrow = 1, widths = c(1,0.5), align = "v")
 ```
 
+Combined plot
 ```{r}
-results_converged <- results_compiled %>%
-  filter(BalancedAccuracy != 0.5000000)
+ggarrange(plot_BalancedAccuracy_combined, plot_Recall_combined, plot_Precision_combined, ncol = 1, nrow = 3, align = "hv", common.legend = TRUE)
+
+ggsave("Figure2_ML_Results.pdf", units = "in", width = 6.5, height = 5)
 ```
 
+### Figure 3: Impact of machine learning modeling decisions
 ```{r}
 plot_BalancedAccuracy_imbalance_box <- ggplot(results_converged, aes(x = reorder(imbalance.label, BalancedAccuracy), y = BalancedAccuracy, fill = input_features)) +
   scale_fill_manual(values = rev(my_pal3)) +
-  geom_boxplot() +
+  geom_boxplot(lwd = 0.25, outlier.size = 0.1) +
   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
-  coord_cartesian(ylim = c(0,1)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), expand = c(0, 0.02)) +
   theme_custom() +
+  theme(axis.text.x = element_blank()) +
+  theme(axis.title.x = element_blank()) +
+  # theme(legend.position = "none") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
   coord_flip()
+
 
 plot_BalancedAccuracy_mlType_box <- ggplot(results_converged, aes(x = reorder(mlMethod.label, BalancedAccuracy), y = BalancedAccuracy, fill = input_features)) +
   scale_fill_manual(values = rev(my_pal3)) +
-  geom_boxplot() +
+  geom_boxplot(lwd = 0.25, outlier.size = 0.1) +
   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
-  coord_cartesian(ylim = c(0,1)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), labels = percent, expand = c(0, 0.02)) +
   theme_custom() +
+  theme(axis.title.x = element_text()) +
+  theme(legend.position = "none") +
+  xlab("Balanced Accuracy") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
   coord_flip()
 
-ggarrange(plot_BalancedAccuracy_imbalance_box, plot_BalancedAccuracy_mlType_box, align = "v", nrow = 2, ncol = 1, common.legend = TRUE)
+ggarrange(plot_BalancedAccuracy_imbalance_box, plot_BalancedAccuracy_mlType_box, align = "hv", nrow = 2, ncol = 1, common.legend = TRUE)
+
+ggsave("Figure3_mlModelParameters.pdf", units = "in", width = 6.2, height = 4)
+
 ```
 
+### Figure 4: Trade-off between model performance and computation time
 ```{r}
-plot_Recall_imbalance_box <- ggplot(results_converged, aes(x = imbalance, y = Recall, fill = input_features)) +
-  scale_fill_manual(values = rev(my_pal3)) +
-  geom_boxplot() +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
-  coord_cartesian(ylim = c(0,1)) +
-  theme_custom() +
-  theme(panel.grid.major.y = element_line(colour = "#f7f7f7"))
+results_reduced <- results_compiled %>%
+  filter(mlMethod == "glm" | mlMethod == "earth" | mlMethod == "pda" | mlMethod == "multinom")
 
-plot_Recall_mlType_box <- ggplot(results_converged, aes(x = mlType, y = Recall, fill = input_features)) +
-  scale_fill_manual(values = rev(my_pal3)) +
-  geom_boxplot() +
-  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
-  coord_cartesian(ylim = c(0,1)) +
+ggplot(results_reduced, aes(x = time.elapsed, y = BalancedAccuracy, colour = mlMethod2)) +
+  scale_colour_manual(values = my_pal5_2) +
+  scale_fill_manual(values = my_pal5_2) +
+  scale_linetype_manual(values = c("solid", "twodash", "longdash", "dotted", "dotdash")) +
+  geom_point(aes(shape = imbalance.label), position = position_jitter(width = 0.1, height = 0.1, seed = 1), size = 1) + 
+  geom_mark_ellipse(aes(fill = mlMethod2), alpha = 0.3, linewidth = 0) +
+  geom_mark_ellipse(aes(linetype = imbalance.label, colour = mlMethod2), linewidth = 0.25) +
+  geom_point(aes(shape = imbalance.label), position = position_jitter(width = 0.1, height = 0.1, seed = 1), size = 1) + 
+  scale_x_continuous(trans = "log2", sec.axis = sec_axis(~log2(.), breaks = seq(4, 9, by = 1), name = "log2(Computation time (s))"), breaks = 2^seq(4, 9, by = 1)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), labels = percent, expand = c(0, 0)) +
   theme_custom() +
-  theme(panel.grid.major.y = element_line(colour = "#f7f7f7"))
+  theme(panel.grid.major = element_line(colour = "#f7f7f7")) +
+  theme(axis.title = element_text()) +
+  theme(axis.text.x = element_text()) +
+  xlab("Computation time (s)") +
+  ylab("Balanced Accuracy") +
+  guides(fill = guide_legend(title.position = "top", nrow = 1),
+         colour = guide_legend(title.position = "top", nrow = 1),
+         shape = guide_legend(title.position = "top", nrow = 1),
+         linetype = guide_legend(title.position = "top", nrow = 1))
 
-ggarrange(plot_Recall_imbalance_box, plot_Recall_mlType_box, align = "hv", nrow = 2, ncol = 1, common.legend = TRUE)
+ ggsave("Figure4_tradeoff.pdf", units = "in", width = 6.5, height = 4)
 ```
+
