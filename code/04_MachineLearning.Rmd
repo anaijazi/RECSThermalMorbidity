@@ -37,7 +37,8 @@ variables <- read_csv("../data/variables.csv")
 
 ### Machine learning model building
 ```{r}
-bootstrap = sample(1:100, 100)
+set.seed(123)
+bootstrap = sample(1:100, 30)
 input_features = c("Baseline", "All")
 imbalance = c("none", "weighted", "up", "smote", "rose")
 
@@ -151,6 +152,7 @@ for (i in bootstrap) {
 
 
 ```
+
 ### Export
 ```{r}
 write_csv(results_compiled, "../data/results_compiled.csv")
