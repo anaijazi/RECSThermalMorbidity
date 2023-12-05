@@ -109,7 +109,29 @@ results_bootstrapped <- results_compiled %>%
                                      imbalance == "up" ~ "Up-sample",
                                      imbalance == "smote" ~ "SMOTE",
                                      imbalance == "rose" ~ "ROSE")) %>%
-  mutate(imbalance.label = factor(imbalance.label, levels = c("None", "Class weights", "Up-sample", "SMOTE", "ROSE"))) 
+  mutate(imbalance.label = factor(imbalance.label, levels = c("None", "Class weights", "Up-sample", "SMOTE", "ROSE")))  %>%
+  mutate(mlMethod.label = case_when(mlMethod == "glm" ~ "Generalized linear model",
+                            mlMethod == "earth" ~ "Multivariate adaptive regression spline",
+                            mlMethod == "pda" ~ "Penalized discriminant analysis",
+                            mlMethod == "multinom" ~ "Penalized multinomal regression",
+                            mlMethod == "treebag" ~ "Classification and regression trees",
+                            mlMethod == "gbm" ~ "Gradient boosting machine",
+                            mlMethod == "ranger" ~ "Random forest",
+                            mlMethod == "nnet" ~ "Neural network")) %>%
+  mutate(mlMethod.label = factor(mlMethod.label, levels = rev(c("Generalized linear model",
+                                                            "Multivariate adaptive regression spline",
+                                                            "Penalized discriminant analysis",
+                                                            "Penalized multinomal regression",
+                                                            "Classification and regression trees",
+                                                            "Gradient boosting machine",
+                                                            "Random forest",
+                                                            "Neural network")))) %>%
+  mutate(mean_time.elapsed_bin = case_when(mean_time.elapsed <= 20 ~ "Fast",
+                                            mean_time.elapsed > 20 & mean_time.elapsed <= 90 ~ "Medium",
+                                            mean_time.elapsed > 90 ~ "Slow")) %>%
+  mutate(mean_time.elapsed_bin = factor(mean_time.elapsed_bin, levels = c("Slow", "Medium", "Fast"))) %>%
+  
+  mutate(joined.label = paste(mlMethod2, imbalance, sep = "/"))
 ```
 
 Filter converged machine learning models and top performing models from each set of input features
@@ -138,7 +160,7 @@ plot_BalancedAccuracy_input <- ggplot(results_bootstrapped, aes(x = Number, y = 
   geom_errorbar(aes(ymin = mean_BalancedAccuracy-(2*sd_BalancedAccuracy), ymax = mean_BalancedAccuracy+(2*sd_BalancedAccuracy)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2), labels = percent) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.25), labels = percent) +
   coord_cartesian(xlim = c(0,80.5), ylim = c(0,1)) +
   theme_custom() +
   theme(legend.position = "none") +
@@ -181,7 +203,7 @@ plot_Recall_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Recal
   geom_errorbar(aes(ymin = mean_Recall-(2*sd_Recall), ymax = mean_Recall+(2*sd_Recall)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2), labels = percent) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.25), labels = percent) +
   coord_cartesian(xlim = c(0,80.5), ylim = c(0,1)) +
   theme_custom() +
   theme(legend.position = "none") +
@@ -259,9 +281,11 @@ plot_Precision_combined <- ggarrange(plot_Precision_input, plot_Precision_best, 
 
 Combined plot
 ```{r}
-ggarrange(plot_BalancedAccuracy_combined, plot_Recall_combined, plot_Precision_combined, ncol = 1, nrow = 3, common.legend = TRUE)
+plot_top <- ggarrange(plot_BalancedAccuracy_combined, plot_Recall_combined, plot_Precision_combined, ncol = 1, nrow = 3)
 
-ggsave("Figure2_ML_Results.pdf", units = "in", width = 6.5, height = 5)
+ggarrange(plot_top, plot_varImp, ncol = 1, nrow = 2, common.legend = TRUE)
+
+ggsave("Figure2_ML_Results.pdf", units = "in", width = 6.4, height = 7)
 ```
 
 ### Figure 3: Impact of machine learning modeling decisions
@@ -298,12 +322,12 @@ ggsave("Figure3_mlModelParameters.pdf", units = "in", width = 6.2, height = 4)
 
 ### Figure 4: Trade-off between model performance and computation time
 ```{r}
-results_reduced <- results_compiled %>%
-  filter(mlMethod == "glm" | mlMethod == "earth" | mlMethod == "pda" | mlMethod == "multinom")
+results_reduced <- results_compiled #%>%
+  # filter(mlMethod == "glm" | mlMethod == "earth" | mlMethod == "pda" | mlMethod == "multinom")
 
 ggplot(results_reduced, aes(x = time.elapsed, y = BalancedAccuracy, colour = mlMethod2)) +
-  scale_colour_manual(values = my_pal5_2) +
-  scale_fill_manual(values = my_pal5_2) +
+  # scale_colour_manual(values = my_pal5_2) +
+  # scale_fill_manual(values = my_pal5_2) +
   scale_linetype_manual(values = c("solid", "twodash", "longdash", "dotted", "dotdash")) +
   geom_point(aes(shape = imbalance.label), position = position_jitter(width = 0.1, height = 0.1, seed = 1), size = 1) + 
   geom_mark_ellipse(aes(fill = mlMethod2), alpha = 0.3, linewidth = 0) +
@@ -325,4 +349,17 @@ ggplot(results_reduced, aes(x = time.elapsed, y = BalancedAccuracy, colour = mlM
 
  ggsave("Figure4_tradeoff.pdf", units = "in", width = 6.5, height = 4)
 ```
+```{r}
+results_bootstrapped_all <- results_bootstrapped %>%
+  filter(input_features == "All")
+
+ggplot(results_bootstrapped_all, aes(x = imbalance.label, y = mlMethod.label, colour = mean_BalancedAccuracy, shape = mean_time.elapsed_bin, size = 1/mean_time.elapsed)) +
+  scale_colour_gradient2(low = "#a50026", mid = "#eaeccc", high = "#364b9a", limits = c(0, 1), midpoint = 0.5, labels = percent) +
+  scale_shape_manual(values = c(15, 16, 17)) +
+  geom_point(size = 5) +
+  theme_custom()
+
+ ggsave("Figure3_interactions.pdf", units = "in", width = 6.5, height = 4)
+```
+
 

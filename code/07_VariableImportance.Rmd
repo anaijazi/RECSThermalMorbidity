@@ -1,0 +1,165 @@
+---
+title: "Variable Importance"
+author: "Arfa Aijazi"
+date: "2023-11-29"
+output: html_document
+---
+
+This script analyzes variable importance in the top-performing machine learning model for both sets of input features
+
+### Setup
+```{r}
+library(tidyverse)
+library(caret)
+library(DMwR)
+library(doParallel)
+library(scales)
+library(ggpubr)
+library(effectsize)
+library(ggforce)
+```
+Custom plot theme
+```{r message=FALSE, warning=FALSE, include=FALSE}
+theme_custom = function() {
+  theme_minimal() %+replace%
+    theme(legend.position = "top") +
+    theme(panel.grid = element_blank()) +
+    theme(strip.background = element_blank()) +
+    theme(panel.border = element_blank()) +
+    theme(panel.background = element_blank()) +
+    #theme(legend.title = element_blank()) +
+    theme(axis.title = element_blank()) +
+    theme(text = element_text(size = 7, colour = "#000000")) +
+    theme(plot.margin = unit(c(0,0,0,0), 'lines'))
+}
+```
+
+Color palette
+```{r}
+## custom colors
+my_pal3 <- rcartocolor::carto_pal(n = 3, name = "Pastel")
+my_pal5 <- rcartocolor::carto_pal(n = 6, name = "Pastel")
+
+
+```
+
+Import data
+```{r}
+recs_standardized <- read_csv("../data/recs_standardized.csv") %>%
+  mutate(TEMPMA = ifelse(TEMPMA == 1, "TEMPMA", "NONE")) %>%
+  mutate(TEMPMA = factor(TEMPMA, levels = c("TEMPMA", "NONE")))
+
+variables <- read_csv("../data/variables.csv")
+```
+
+```{r}
+#Use the same seeds from machine learning run
+set.seed(123)
+bootstrap <- sample(1:100, 30)
+input_features <- c("Baseline", "All")
+varImp_compiled <- data.frame(bootstrap = integer(), input_features = character(), variable = character(), coef = double())
+```
+
+```{r}
+for (i in bootstrap) {
+  set.seed(i)
+  trainIndex <- createDataPartition(recs_standardized$TEMPMA, p = 0.8, list = FALSE, times = 1)
+  
+  trainData <- recs_standardized[trainIndex,]
+  testData <- recs_standardized[-trainIndex,]
+  
+ set.seed(i)
+  ctrl <- trainControl(method = "repeatedcv",
+                     number = 5,
+                     repeats = 5,
+                     summaryFunction = prSummary,
+                     classProbs = TRUE,
+                     index = createFolds(trainData$TEMPMA, 5),
+                     allowParallel = TRUE)
+  
+  for (j in input_features) {
+    if (j == "Baseline") {
+      vars <- variables %>%
+        filter(BASELINE == 1)
+      
+       training <- trainData %>%
+         select(starts_with(vars$VARIABLE))
+       training$TEMPMA <- trainData$TEMPMA
+       
+       ctrl$sampling <- "smote"
+    }
+    
+    else {
+      training <- trainData
+      ctrl$sampling <- "rose"
+    }
+       
+       cl <- makePSOCKcluster(detectCores())
+           registerDoParallel(cl) # Start parallel processing
+           set.seed(123)
+           train_fit <- train(TEMPMA ~ .,
+                          data = training,
+                          method = "multinom",
+                          metric = "AUC",
+                          trControl = ctrl)
+          stopCluster(cl) 
+          
+          coefficients <- data.frame(coef = coef(train_fit$finalModel,unlist(train_fit$bestTune))) %>%
+            rownames_to_column(var = "variable")
+          varImp_single <- data.frame(bootstrap = i,
+                                      input_features = j,
+                                      coefficients)
+        
+          varImp_compiled <- rbind(varImp_compiled, varImp_single)
+    }
+  }
+
+```
+
+```{r}
+varImp_bootstrapped <- varImp_compiled %>%
+  group_by(input_features, variable) %>%
+  summarise(mean_Coef = mean(coef), sd_Coef = sd(coef)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = input_features, values_from = mean_Coef) %>%
+  rename(VARIABLE = variable) %>%
+  full_join(variables) %>%
+  select(-BASELINE, -ALL) %>%
+  # # replace(is.na(.), 0) %>%
+  pivot_longer(cols = c("Baseline", "All"), names_to = "input_features", values_to = "mean_Coef") %>%
+  mutate(input_features = factor(input_features, levels = c("Baseline", "All"))) %>%
+  filter(VARIABLE != "(Intercept)") %>%
+  mutate(CATEGORY.5 = factor(CATEGORY.5, levels = c("Climate", "Demographics", "Construction", "Envelope", "HVAC"))) %>%
+  mutate(CATEGORY.3 = factor(CATEGORY.3, levels = c("Climate", "Demographics", "Buildings"))) %>%
+  mutate(mag_Coef = abs(mean_Coef)) %>%
+  arrange(-mag_Coef) %>%
+  mutate(nonzero = ifelse((mag_Coef-(2*sd_Coef)) <= 0, 0, 1))
+```
+
+
+
+```{r}
+plot_varImp <- ggplot(varImp_bootstrapped, aes(x = reorder(LONG.NAME, -ORDER), y = mag_Coef, colour = input_features, group = input_features, alpha = nonzero)) +
+  scale_colour_manual(values = rev(my_pal3)) +
+  scale_alpha(range = c(0.3, 1)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, colour = "#b2182b") +
+  geom_errorbar(aes(ymin = mag_Coef-(2*sd_Coef), ymax = mag_Coef+(2*sd_Coef)), width = 0.2, colour = "#000000", linewidth = 0.2) +
+  geom_point(size = 2) +
+  theme_custom() +
+  coord_flip() +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
+  facet_grid(CATEGORY.3~input_features, switch = "y", scales = "free_y", space = "free_y") +
+  theme(panel.spacing = unit(0, "lines"),
+        strip.background = element_blank(),
+        strip.placement = "outside",
+        strip.text.y.left = element_text(angle = 0),
+        legend.position = "none",
+        axis.title.x = element_text()) +
+  ylab("Magnitude of regression coefficient") +
+  theme(panel.grid.major.x = element_line(colour = "#f7f7f7"))
+
+ggsave("Figure5_coefficiencts.pdf", units = "in", width = 6.5, height = 4)
+```
+                 
+                     
+```

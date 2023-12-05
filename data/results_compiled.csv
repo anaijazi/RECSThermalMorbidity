@@ -1,0 +1,4 @@
+bootstrap,input_features,imbalance,mLMethod,time.start,time.end,Precision,Recall,F1,BalancedAccuracy
+31,Baseline,none,glm,2023-11-29T16:00:10Z,2023-11-29T16:00:21Z,NA,0,NA,0.5
+31,Baseline,none,earth,2023-11-29T16:00:21Z,2023-11-29T16:01:11Z,NA,0,NA,0.5
+31,Baseline,none,pda,2023-11-29T16:01:11Z,2023-11-29T16:01:40Z,NA,0,NA,0.5
