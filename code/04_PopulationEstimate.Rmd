@@ -9,8 +9,10 @@ This script estimates the population prevalence of temperature-related morbidity
 ### Setup
 ```{r}
 library(survey)
-library(dplyr)
+library(tidyverse)
 library(scales)
+library(usmap)
+library(ggpubr)
 ```
 
 Custom plot theme
@@ -72,6 +74,7 @@ results_2015 <- rbind(HOTMA_2015, COLDMA_2015) %>%
 2020 Survey analysis based on: https://www.eia.gov/consumption/residential/data/2020/pdf/microdata-guide.pdf
 ```{r}
 repweights_2020 <- select(recs_2020, NWEIGHT1:NWEIGHT60)
+recs_2020$POP_STATE <- 1
 RECS <- svrepdesign(data = recs_2020,
                     weight = ~NWEIGHT,
                     repweights = repweights_2020,
@@ -91,6 +94,44 @@ results_2020 <- rbind(HOTMA_2020, COLDMA_2020) %>%
   mutate(year = 2020)
 ```
 
+2020 state level estimates
+```{r}
+POP_STATE <-as.data.frame(svyby(~POP_STATE, by=~state_postal, RECS, svytotal)) %>%
+  rename(state = state_postal) %>%
+  select(-se)
+rownames(POP_STATE) <- NULL
+
+HOTMA_STATE<-as.data.frame(svyby(~HOTMA, by=~state_postal, RECS, svytotal)) %>%
+  rename(state = state_postal) %>%
+  select(-se)
+rownames(HOTMA_STATE) <- NULL
+
+COLDMA_STATE<-as.data.frame(svyby(~COLDMA, by=~state_postal, RECS, svytotal)) %>%
+  rename(state = state_postal) %>%
+  select(-se)
+rownames(COLDMA_STATE) <- NULL
+
+merged <- POP_STATE %>%
+  inner_join(HOTMA_STATE) %>%
+  inner_join(COLDMA_STATE) %>%
+  mutate(HOTMA_rate = HOTMA/POP_STATE) %>%
+  mutate(COLDMA_rate = COLDMA/POP_STATE) %>%
+  arrange(-HOTMA_rate)
+```
+
+HOTMA normalized by state population
+```{r}
+plot_HOTMA <- plot_usmap(data = merged, values = "HOTMA_rate") +
+  scale_fill_continuous(low = "#f7f7f7", high = "#b2182b", na.value = "#f7f7f7", label = percent, name = "Heat-related illness prevalence (2020)", limits = c(0, 0.03), breaks = seq(0, 0.03, by = 0.01)) +
+  theme(legend.position = "top")
+```
+2020 state level estimates
+```{r}
+plot_COLDMA <- plot_usmap(data = merged, values = "COLDMA_rate") +
+  scale_fill_continuous(low = "#f7f7f7", high = "#2166ac", na.value = "#f7f7f7", label = percent, name = "Cold-related illness prevalence (2020)", breaks = seq(0, 0.03, by = 0.01), limits = c(0, 0.03)) +
+  theme(legend.position = "top") 
+```
+
 ```{r}
 results_all <- results_2015 %>%
   full_join(results_2020) %>%
@@ -108,7 +149,7 @@ results_all <- results_2015 %>%
 
 Population estimates plot
 ```{r}
-ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill = year)) +
+plot_total <- ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill = year)) +
   scale_fill_manual(values = my_pal2) +
   scale_y_continuous(label = comma) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.8) +
@@ -120,6 +161,9 @@ ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill 
 ```
 
 ```{r}
-ggsave("Figure1_PopulationEstimate.pdf", units = "in", width = 6.5, height = 3)
+plot_maps <- ggarrange(plot_HOTMA, plot_COLDMA, ncol = 2, nrow = 1)
+ggarrange(plot_total, plot_maps, ncol = 1, nrow = 2, heights = c(1, 2))
+
+ggsave("Figure1_PopulationEstimate.pdf", units = "in", width = 6.5, height = 5)
 ```
 
