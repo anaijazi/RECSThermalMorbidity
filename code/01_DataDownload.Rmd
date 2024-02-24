@@ -137,7 +137,11 @@ recs_all <- full_join(recs_2015_sub, recs_2020_sub) %>%
 
 ```{r}
 recs_recode <- recs_all %>%
-  mutate(NONWHITE = ifelse(HOUSEHOLDER_RACE != 1 | SDESCENT == 1, 1, 0)) %>%
+  mutate(WHITE = ifelse(HOUSEHOLDER_RACE == 1, 1, 0)) %>%
+  mutate(BLACK = ifelse(HOUSEHOLDER_RACE == 2, 1, 0)) %>%
+  mutate(ASIAN = ifelse(HOUSEHOLDER_RACE == 4, 1, 0)) %>%
+  mutate(MIXED = ifelse(HOUSEHOLDER_RACE == 7, 1, 0)) %>%
+  mutate(OTHER_RACE = ifelse(HOUSEHOLDER_RACE == 3 | HOUSEHOLDER_RACE == 5 | HOUSEHOLDER_RACE == 6, 1, 0)) %>%
   mutate(OVER65 = ifelse(HHAGE > 65 | NUMADULT2 > 0, 1, 0)) %>% # ADULT2 in the 2020 data set counts the number of adults over 65
   mutate(NHSLDMEM = NUMADULT + NUMCHILD) %>%
   mutate(LIVESALONE = ifelse(NHSLDMEM == 1, 1, 0)) %>%
@@ -218,28 +222,29 @@ recs_recode <- recs_all %>%
   mutate(EMPLOYHH = ifelse(EMPLOYHH == 2, 0.5, EMPLOYHH)) %>% # Part-time employment
   mutate(DRAFTY = (DRAFTY*-1) + 4) %>%
   mutate(OFFGRID = ifelse(BACKUP == 1 | SOLAR == 1, 1, 0)) %>%
-  mutate(ENRGINSEC = case_when(NOACEL == 1 ~ 1,
+  mutate(HVAC_OPERATION = case_when(NOACEL == 1 ~ 1,
                                NOHEATEL == 1 ~ 1,
                                NOHEATNG == 1 ~ 1,
                                NOHEATBULK == 1 ~ 1,
-                               NOACBROKE == 1 ~ 1,
-                               NOHEATBROKE == 1 ~ 1,
                                SCALEB != 0 ~ 1, 
                                SCALEG != 0 ~ 1,
                                SCALEE != 0 ~ 1,
                                TRUE ~ 0
                                )) %>%
+  mutate(HVAC_MAINTENANCE = ifelse(NOACBROKE == 1 | NOHEATBROKE == 1, 1, 0)) %>%
   mutate(WWR = WINDOWS/TOTROOMS) %>%
   mutate(NUMFANS = NUMCFAN + NUMFLOORFAN)
 ```
 
 ```{r}
 recs_subset <- recs_recode %>%
-  select(DBT1, DBT99, NONWHITE, OVER65, LIVESALONE, LARGEHOUSE, POVERTY, EMPLOYHH, HIGHSCHOOL, RENT, PAYSUTL, APARTMENT, MOBILE, YEARMADERANGE, THERMALMASS.WALL, THERMALMASS.ROOF, ADQINSUL, DRAFTY, WWR, TYPEGLASS, COOLTYPE, EQUIPM, ENRGINSEC, NUMFANS, OFFGRID, TEMPMA)
+  select(DBT1, DBT99, WHITE, BLACK, ASIAN, MIXED, OTHER_RACE, SDESCENT, OVER65, LIVESALONE, LARGEHOUSE, POVERTY, EMPLOYHH, HIGHSCHOOL, RENT, PAYSUTL, APARTMENT, MOBILE, YEARMADERANGE, THERMALMASS.WALL, THERMALMASS.ROOF, ADQINSUL, DRAFTY, WWR, TYPEGLASS, COOLTYPE, EQUIPM, HVAC_OPERATION, HVAC_MAINTENANCE, NUMFANS, OFFGRID, TEMPMA)
 ```
 
 ### Export
 ```{r}
 write_csv(recs_subset, "../data/recs_subset.csv")
 ```
+
+
 

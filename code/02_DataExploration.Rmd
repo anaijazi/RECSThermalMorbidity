@@ -74,9 +74,10 @@ t.test_sig <- t.test_result %>%
 
 Plot effect sizes of significant variables
 ```{r}
-ggplot(t.test_sig, aes(x = reorder(LONG.NAME, mag.d), y = mag.d, shape = CATEGORY.5, colour = CATEGORY.5)) +
-  scale_colour_manual(values = my_pal) +
-  scale_shape_manual(values = c(0, 1, 2, 5)) +
+ggplot(t.test_sig, aes(x = reorder(LONG.NAME, mag.d), y = mag.d, shape = CATEGORY.5, colour = CATEGORY.5, fill = CATEGORY.5)) +
+  scale_color_manual(values = my_pal) +
+  scale_fill_manual(values = my_pal) +
+  scale_shape_manual(values = c(21, 22, 23, 24, 25)) +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.41, ymax = 1.15, alpha = 0.2, fill = "#e7d4e8") +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 1.15, ymax = 2.7, alpha = 0.2, fill = "#c2a5cf") +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 2.7, ymax = Inf, alpha = 0.2, fill = "#9970ab") +

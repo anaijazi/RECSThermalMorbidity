@@ -12,8 +12,24 @@ Load libraries
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(caret)
+library(ggcorrplot)
 
 options(es.use_symbols = TRUE)
+```
+
+Custom plot theme
+```{r message=FALSE, warning=FALSE, include=FALSE}
+theme_custom = function() {
+  theme_minimal() %+replace%
+    theme(legend.position = "top") +
+    theme(panel.grid = element_blank()) +
+    theme(strip.background = element_blank()) +
+    theme(panel.border = element_blank()) +
+    theme(panel.background = element_blank()) +
+    # theme(legend.title = element_blank()) +
+    theme(axis.title = element_blank()) +
+    theme(text = element_text(size = 7, colour = "#000000"))
+}
 ```
 
 Import data
@@ -26,38 +42,55 @@ y <- recs_subset$TEMPMA
 Zero- and Near Zero-Variance Predictors
 
 ```{r}
-# nzv <- nearZeroVar(recs_subset, saveMetrics = TRUE, freqCut = 20)
-nzv <- nearZeroVar(recs_subset, freqCut = 20) #
+nzv <- nearZeroVar(recs_subset, saveMetrics = TRUE)
+nzv <- nearZeroVar(recs_subset)
 recs_nzv <- recs_subset[,-nzv]
 recs_nzv$TEMPMA <- y # add TEMPMA back
 ```
 
-Removes LARGEHOUSE AND PAYSUTL
+Removes ASIAN, MIXED, OTHER_RACE, LARGEHOUSE, EQUIPM, AND PAYSUTL
 
 Correlated predictors
 ```{r}
-descrCor <-  cor(recs_nzv)
-highlyCorDescr <- findCorrelation(descrCor, cutoff = .7)
+descrCor <-  cor(recs_nzv, method = "spearman")
+summary(descrCor[upper.tri(descrCor)])
+
+# descrCor <-  cor(recs_nzv, method = "pearson")
+# summary(descrCor[upper.tri(descrCor)])
+
+highlyCorDescr <- findCorrelation(descrCor, cutoff = 0.75)
+recs_cor <- recs_nzv[,-highlyCorDescr]
 ```
 
-No highly correlated variables
+Plot correlation matrix
+```{r}
+corr <- round(cor(recs_nzv, method = "spearman"), 1)
+p.mat <- cor_pmat(recs_nzv)
+
+ggcorrplot(corr, hc.order = TRUE, type = "upper",lab = F, p.mat = p.mat, outline.color = "white", legend.title = "Spearman's correlation coefficient") + 
+  theme_custom() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("CorrelationMatrix.pdf", units = "in", width = 6.5, height = 6)
+```
+
 
 Linear dependencies
 ```{r}
-comboInfo <- findLinearCombos(recs_nzv)
+comboInfo <- findLinearCombos(recs_cor)
 ```
 
-No linearly combinations
+No linear combinations
 
 Centering and scaling
 ```{r}
-recs_input <- recs_nzv %>%
+recs_input <- recs_cor %>%
   mutate(TEMPMA = ifelse(TEMPMA == 1, "TEMPMA", "NONE")) %>%
   mutate(TEMPMA = factor(TEMPMA, levels = c("TEMPMA", "NONE")))
 
-preProcValues <- preProcess(recs_input, method = c("center", "scale"))
+preProcValues <- preProcess(recs_input, method = c("range"))
 
-recs_standardized <- predict(preProcValues, recs_nzv)
+recs_standardized <- predict(preProcValues, recs_input)
 ```
 
 ### Export

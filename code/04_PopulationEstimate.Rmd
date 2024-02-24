@@ -122,13 +122,13 @@ merged <- POP_STATE %>%
 HOTMA normalized by state population
 ```{r}
 plot_HOTMA <- plot_usmap(data = merged, values = "HOTMA_rate") +
-  scale_fill_continuous(low = "#f7f7f7", high = "#b2182b", na.value = "#f7f7f7", label = percent, name = "Heat-related illness prevalence (2020)", limits = c(0, 0.03), breaks = seq(0, 0.03, by = 0.01)) +
+  scale_fill_continuous(low = "#f7f7f7", high = "#b2182b", na.value = "#f7f7f7", label = percent, name = "Heat-related illness", limits = c(0, 0.03), breaks = seq(0, 0.03, by = 0.01)) +
   theme(legend.position = "top")
 ```
 2020 state level estimates
 ```{r}
 plot_COLDMA <- plot_usmap(data = merged, values = "COLDMA_rate") +
-  scale_fill_continuous(low = "#f7f7f7", high = "#2166ac", na.value = "#f7f7f7", label = percent, name = "Cold-related illness prevalence (2020)", breaks = seq(0, 0.03, by = 0.01), limits = c(0, 0.03)) +
+  scale_fill_continuous(low = "#f7f7f7", high = "#2166ac", na.value = "#f7f7f7", label = percent, name = "Cold-related illness", breaks = seq(0, 0.03, by = 0.01), limits = c(0, 0.03)) +
   theme(legend.position = "top") 
 ```
 
@@ -142,26 +142,26 @@ results_all <- results_2015 %>%
   mutate(CI_TEMPMA = 1.96*SE_TEMPMA) %>%
   pivot_longer(cols = ends_with("MA"), names_to = c("metric", "variable"), names_sep = "_", values_to = "value") %>%
   pivot_wider(names_from = metric, values_from = value) %>%
-  mutate(label = case_when(variable == "TEMPMA" ~ "Any temperature",
-                           variable == "HOTMA" ~ "Heat-related",
-                           variable == "COLDMA" ~ "Cold-related"))
+  mutate(label = case_when(variable == "TEMPMA" ~ "Any temperature-related illness",
+                           variable == "HOTMA" ~ "Heat-related illness",
+                           variable == "COLDMA" ~ "Cold-related illness"))
 ```
 
 Population estimates plot
 ```{r}
 plot_total <- ggplot(results_all, aes(x = reorder(label,total), y = total, group = year, fill = year)) +
   scale_fill_manual(values = my_pal2) +
-  scale_y_continuous(label = comma) +
+  scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.8) +
   geom_errorbar(aes(ymin = total-CI, ymax = total+CI), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
-  annotate("text", x = "Heat-related", y = 2000000, label = "Total U.S. households\n2015: 118.2 million\n2020:123.5 million", size = 2) +
+  annotate("text", x = "Heat-related illness", y = 2000000, label = "Total U.S. households\n2015: 118.2 M\n2020:123.5 M", size = 2) +
   theme_custom() +
   coord_flip() +
   ylab("Estimated number of U.S. households affected")
 ```
 
 ```{r}
-plot_maps <- ggarrange(plot_HOTMA, plot_COLDMA, ncol = 2, nrow = 1)
+plot_maps <- ggarrange(plot_COLDMA, plot_HOTMA, ncol = 2, nrow = 1)
 ggarrange(plot_total, plot_maps, ncol = 1, nrow = 2, heights = c(1, 2))
 
 ggsave("Figure1_PopulationEstimate.pdf", units = "in", width = 6.5, height = 5)
