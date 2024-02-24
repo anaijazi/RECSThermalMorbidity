@@ -45,7 +45,7 @@ imbalance = c("none", "weighted", "up", "smote", "rose")
 
 results_compiled <- data.frame(bootstrap = integer(), input_features = character(), imbalance = character(), mlMethod = character, time.start = double(), time.end = double(), Precision = double(), Recall = double(), F1 = double(), BalancedAccuracy = double())
 
-for (i in bootstrap) {
+for (i in bootstrap[11:15]) {
   set.seed(i)
   trainIndex <- createDataPartition(recs_standardized$TEMPMA, p = 0.8, list = FALSE, times = 1)
   
@@ -145,7 +145,7 @@ for (i in bootstrap) {
                               F1 = confusionMatrix_output$byClass[["F1"]],
                               BalancedAccuracy = confusionMatrix_output$byClass[["Balanced Accuracy"]])
         results_compiled <- rbind(results_compiled, results)
-        write_csv(results_compiled, "../data/results_compiled.csv")
+        write_csv(results_compiled, "../data/results_compiled_3.csv")
       }
     }
   }
@@ -156,6 +156,6 @@ for (i in bootstrap) {
 
 ### Export
 ```{r}
-write_csv(results_compiled, "../data/results_compiled.csv")
+write_csv(results_compiled, "../data/results_compiled_3.csv")
 ```
 
