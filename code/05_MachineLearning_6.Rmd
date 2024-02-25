@@ -154,7 +154,8 @@ for (i in bootstrap[26:30]) {
 
 ```
 
-### Export
+### Export file
+
 ```{r}
 write_csv(results_compiled, "../data/results_compiled_6.csv")
 ```
