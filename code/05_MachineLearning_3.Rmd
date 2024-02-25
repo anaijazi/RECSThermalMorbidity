@@ -106,27 +106,57 @@ for (i in bootstrap[11:15]) {
         start <- Sys.time()
        
         if (m[[1]] == "glm" | m[[1]] == "treebag") { # these ML algorithms do not have tuning parameters
-           cl <- makePSOCKcluster(detectCores())
-           registerDoParallel(cl) # Start parallel processing
-           set.seed(123)
-           train_fit <- train(TEMPMA ~ .,
+          if (k == "weighted") {
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
+                               data = training,
+                               method = m[[1]],
+                               weights = model_weights,
+                               metric = "AUC",
+                               trControl = ctrl)
+            stopCluster(cl) 
+          }
+          else{
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
                           data = training,
                           method = m[[1]],
                           metric = "AUC",
                           trControl = ctrl)
-          stopCluster(cl) 
+            stopCluster(cl) 
+          }
+           
         }
         else {
-          cl <- makePSOCKcluster(detectCores())
-          registerDoParallel(cl) # Start parallel processing
-          set.seed(123)
-          train_fit <- train(TEMPMA ~ .,
+          if (k == "weighted") {
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
+                          data = training,
+                          method = m[[1]],
+                          weights = model_weights,
+                          metric = "AUC",
+                          trControl = ctrl,
+                          tuneGrid = data.frame(m[-1]))
+            stopCluster(cl) 
+          }
+          else{
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
                           data = training,
                           method = m[[1]],
                           metric = "AUC",
                           trControl = ctrl,
                           tuneGrid = data.frame(m[-1]))
-          stopCluster(cl) 
+            stopCluster(cl) 
+          }
         }
         # End parallel processing
         end <- Sys.time()
