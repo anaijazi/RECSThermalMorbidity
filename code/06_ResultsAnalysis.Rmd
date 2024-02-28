@@ -45,7 +45,7 @@ my_pal12 <- rcartocolor::carto_pal(n = 12, name = "Pastel")
 
 ### Load data
 ```{r}
-results_file <- "../data/results_compiled_20231128.csv"
+results_file <- "../data/results_compiled_4.csv"
 
 results <- read_csv(results_file)
 
