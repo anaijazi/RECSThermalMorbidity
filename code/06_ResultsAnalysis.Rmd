@@ -45,9 +45,10 @@ my_pal12 <- rcartocolor::carto_pal(n = 12, name = "Pastel")
 
 ### Load data
 ```{r}
-results_file <- "../data/results_compiled_4.csv"
+# results_file <- "../data/results_compiled_*.csv"
+files <- fs::dir_ls(path = "../data", glob = "*results_compiled*csv")
 
-results <- read_csv(results_file)
+results <- read_csv(files)
 
 results_compiled <- results %>%
   rename(mlMethod = mLMethod) %>%
@@ -140,10 +141,10 @@ results_converged <- results_compiled %>%
   filter(BalancedAccuracy != 0.5000000)
 
 best_all <- results_converged %>%
-  filter(input_features == "All" & imbalance == "up" & mlMethod == "gbm")
+  filter(input_features == "All" & imbalance == "rose" & mlMethod == "pda")
 
 best_baseline <- results_converged %>%
-  filter(input_features == "Baseline" & imbalance == "smote" & mlMethod == "pda")
+  filter(input_features == "Baseline" & imbalance == "smote" & mlMethod == "glm")
 
 best_models <- best_all %>%
   full_join(best_baseline)
@@ -154,7 +155,7 @@ best_models <- best_all %>%
 ### Figure 2: Overall view of machine learning model iterations and best model performance
 Top panel: balanced accuracy
 ```{r}
-plot_BalancedAccuracy_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_BalancedAccuracy, fill = input_features, pattern = imbalance)) +
+plot_BalancedAccuracy_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_BalancedAccuracy, fill = input_features)) +
   scale_fill_manual(values = rev(my_pal3)) +
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_BalancedAccuracy-(2*sd_BalancedAccuracy), ymax = mean_BalancedAccuracy+(2*sd_BalancedAccuracy)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
@@ -168,7 +169,7 @@ plot_BalancedAccuracy_input <- ggplot(results_bootstrapped, aes(x = Number, y = 
   theme(axis.text.x = element_blank()) +
   ylab("Balanced Accuracy") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 56.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
+  annotate("rect", xmin = 66.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
 
 best_models_BalancedAccuracy <- best_models %>%
   pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
@@ -179,11 +180,15 @@ best_models_BalancedAccuracy <- best_models %>%
 
 effectsize_BalancedAccuracy <- cohens_d("Baseline", "All", data = best_models_BalancedAccuracy, paired = TRUE)
 
+mean_diff_BalancedAccuracy <- round(mean(best_models_BalancedAccuracy$All) - mean(best_models_BalancedAccuracy$Baseline), 2)*100
+
+mag_eff_BalancedAccuracy <- round(abs(effectsize_BalancedAccuracy$Cohens_d),1)
+
 plot_BalancedAccuracy_best <- ggpaired(best_models_BalancedAccuracy, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
   geom_hline(yintercept = c(0.5), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), labels = percent) +
   # stat_compare_means(label = "p.format", method = "t.test", ref.group = "Baseline", size = 3) +
-  annotate("text", x = "All", y = 0.95, label = "13% increase in balanced accuracy\np < 0.001\n|d| = 4.1 (strong effect)", size = 3) +
+  annotate("text", x = "All", y = 0.95, label = paste0(mean_diff_BalancedAccuracy,"% increase in balanced accuracy\np < 0.001\n|d| = ", mag_eff_BalancedAccuracy, " (strong effect)"), size = 3) +
   theme_custom() +
   theme(legend.position = "none") +
   theme(axis.text.y = element_blank()) +
@@ -201,7 +206,7 @@ plot_Recall_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Recal
   scale_fill_manual(values = rev(my_pal3)) +
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_Recall-(2*sd_Recall), ymax = mean_Recall+(2*sd_Recall)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
-  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
   scale_y_continuous(breaks = seq(0, 1, by = 0.25), labels = percent) +
   coord_cartesian(xlim = c(0,80.5), ylim = c(0,1)) +
@@ -211,7 +216,7 @@ plot_Recall_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Recal
   theme(axis.text.x = element_blank()) +
   ylab("Recall") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 56.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
+  annotate("rect", xmin = 66.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
 
 best_models_Recall <- best_models %>%
   pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
@@ -222,11 +227,15 @@ best_models_Recall <- best_models %>%
 
 effectsize_Recall <- cohens_d("Baseline", "All", data = best_models_Recall, paired = TRUE)
 
+mean_diff_Recall <- round(mean(best_models_Recall$All) - mean(best_models_Recall$Baseline), 2)*100
+
+mag_eff_Recall <- round(abs(effectsize_Recall$Cohens_d), 1)
+
 plot_Recall_best <- ggpaired(best_models_Recall, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
-  geom_hline(yintercept = c(0.5), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
+  geom_hline(yintercept = c(0), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_y_continuous(breaks = seq(0, 1, by = 0.1), limits = c(0.5,1), labels = percent) +
   # stat_compare_means(label = "p.format", method = "t.test", ref.group = "Baseline", size = 3) +
-  annotate("text", x = "All", y = 0.95, label = "15% increase in recall\np < 0.001\n|d| = 2.4 (moderate effect)", size = 3) +
+  annotate("text", x = "All", y = 0.95, label = paste0(mean_diff_Recall,"% increase in recall\np < 0.001\n|d| = ", mag_eff_Recall, " (moderate effect)"), size = 3) +
   theme_custom() +
   theme(legend.position = "none") +
   theme(axis.text.y = element_blank()) +
@@ -254,7 +263,7 @@ plot_Precision_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Pr
   ylab("Precision") +
   xlab("Machine learning models (ranked by balanced accuracy)") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 56.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#b2182b")
+  annotate("rect", xmin = 66.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
 
 best_models_Precision <- best_models %>%
   pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
@@ -265,11 +274,15 @@ best_models_Precision <- best_models %>%
 
 effectsize_Precision <- cohens_d("Baseline", "All", data = best_models_Precision, paired = TRUE)
 
-plot_Precision_best <- ggpaired(best_models_Precision, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
+mean_diff_Precision <- round(mean(best_models_Precision$All) - mean(best_models_Precision$Baseline), 2)*100
+
+mag_eff_Precision <- round(abs(effectsize_Precision$Cohens_d), 1)
+
+ plot_Precision_best <- ggpaired(best_models_Precision, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
   geom_hline(yintercept = c(0), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
   scale_y_continuous(breaks = seq(0, 0.3, by = 0.1), limits = c(0,0.3), labels = percent) +
   # stat_compare_means(label = "p.format", method = "t.test", ref.group = "Baseline", size = 3) +
-  annotate("text", x = "All", y = 0.1, label = "3% increase in precision\np < 0.001\n|d| = 8.0 (strong effect)", size = 3) +
+  annotate("text", x = "All", y = 0.1, label = paste0(mean_diff_Precision,"% increase in recall\np < 0.001\n|d| = ", mag_eff_Precision, " (strong effect)"), size = 3) +
   theme_custom() +
   theme(legend.position = "none") +
   theme(axis.text.y = element_blank()) +
@@ -283,7 +296,7 @@ Combined plot
 ```{r}
 plot_top <- ggarrange(plot_BalancedAccuracy_combined, plot_Recall_combined, plot_Precision_combined, ncol = 1, nrow = 3)
 
-ggarrange(plot_top, plot_varImp, ncol = 1, nrow = 2, common.legend = TRUE)
+ggarrange(plot_top, ncol = 1, nrow = 2, common.legend = TRUE)
 
 ggsave("Figure2_ML_Results.pdf", units = "in", width = 6.4, height = 7)
 ```
