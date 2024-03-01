@@ -3,30 +3,33 @@
 2,DBT99,Heating design temperature,Climate,Climate,1,1
 3,WHITE,White race,Demographics,Demographics,1,1
 4,BLACK,Black race,Demographics,Demographics,1,1
-5,SDESCENT,Hispanic or Latino ethnicity,Demographics,Demographics,1,1
-6,ASIAN,Asian race,Demographics,Demographics,1,1
-7,MIXED,Mixed race,Demographics,Demographics,1,1
-8,OTHER_RACE,Other race,Demographics,Demographics,1,1
+5,ASIAN,Asian race,Demographics,Demographics,1,1
+6,MIXED,Mixed race,Demographics,Demographics,1,1
+7,OTHER_RACE,Other race,Demographics,Demographics,1,1
+8,SDESCENT,Hispanic or Latino ethnicity,Demographics,Demographics,1,1
 9,OVER65,Older than 65,Demographics,Demographics,1,1
 10,LIVESALONE,Lives alone,Demographics,Demographics,1,1
 11,LARGEHOUSE,Large household,Demographics,Demographics,1,1
-12,HIGHSCHOOL,Education level,Demographics,Demographics,1,1
-13,EMPLOYHH,Employment,Demographics,Demographics,1,1
-14,POVERTY,Poverty,Demographics,Demographics,1,1
-15,RENT,Household pays rents,Demographics,Demographics,1,1
-16,PAYSUTL,Pays utility or fuel,Demographics,Demographics,1,1
-17,APARTMENT,Apartment,Construction,Buildings,0,1
-18,MOBILE,Mobile home,Construction,Buildings,0,1
-19,YEARMADERANGE,Construction age,Construction,Buildings,0,1
-20,THERMALMASS.WALL,Thermally massive wall,Envelope,Buildings,0,1
-21,THERMALMASS.ROOF,Thermally massive roof,Envelope,Buildings,0,1
-22,ADQINSUL,Insulation level,Envelope,Buildings,0,1
-23,DRAFTY,Infiltration,Envelope,Buildings,0,1
-24,WWR,Windows per room,Envelope,Buildings,0,1
-25,TYPEGLASS,Window glazing type,Envelope,Buildings,0,1
-26,COOLTYPE,AC type,HVAC,Buildings,0,1
-27,EQUIPM,Heating type,HVAC,Buildings,0,1
-28,HVAC_OPERATION,HVAC operation cost,HVAC,Buildings,0,1
-29,HVAC_MAINTENANCE,HVAC maintenance cost,HVAC,Buildings,0,1
-30,NUMFANS,Number of ceiling fans,HVAC,Buildings,0,1
-31,OFFGRID,Off-grid,HVAC,Buildings,0,1
+12,POVERTY,Poverty,Demographics,Demographics,1,1
+13,UNEMPLOYED,Unemployed or retired,Demographics,Demographics,1,1
+14,HIGHSCHOOL,Education level less than high school,Demographics,Demographics,1,1
+15,RENT,Household pays rent,Demographics,Demographics,1,1
+16,ELPAY,Household pays for electricity,Demographics,Demographics,1,1
+17,NGPAY,Household pays for natural gas,Demographics,Demographics,1,1
+18,LPGPAY,Household pays for propane,Demographics,Demographics,1,1
+19,FOPAY,Household pays for fuel oil,Demographics,Demographics,1,1
+20,APARTMENT,Apartment,Construction,Buildings,0,1
+21,MOBILE,Mobile home,Construction,Buildings,0,1
+22,YEARMADERANGE,Construction age,Construction,Buildings,0,1
+23,THERMALMASS.WALL,Thermally massive wall,Envelope,Buildings,0,1
+24,THERMALMASS.ROOF,Thermally massive roof,Envelope,Buildings,0,1
+25,ADQINSUL,Insulation level,Envelope,Buildings,0,1
+26,DRAFTY,Infiltration,Envelope,Buildings,0,1
+27,WWR,Windows per room,Envelope,Buildings,0,1
+28,TYPEGLASS,Window glazing type,Envelope,Buildings,0,1
+29,COOLTYPE,AC type,HVAC,Buildings,0,1
+30,EQUIPM,Heating type,HVAC,Buildings,0,1
+31,HVAC_OPERATION,HVAC operation cost,HVAC,Buildings,0,1
+32,HVAC_MAINTENANCE,HVAC maintenance cost,HVAC,Buildings,0,1
+33,NUMFANS,Number of ceiling fans,HVAC,Buildings,0,1
+34,OFFGRID,Off-grid,HVAC,Buildings,0,1
