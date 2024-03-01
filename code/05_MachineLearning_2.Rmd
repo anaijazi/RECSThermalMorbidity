@@ -45,7 +45,7 @@ imbalance = c("none", "weighted", "up", "smote", "rose")
 
 results_compiled <- data.frame(bootstrap = integer(), input_features = character(), imbalance = character(), mlMethod = character, time.start = double(), time.end = double(), Precision = double(), Recall = double(), F1 = double(), BalancedAccuracy = double())
 
-for (i in bootstrap[6:10]) {
+for (i in bootstrap[4:6]) {
   set.seed(i)
   trainIndex <- createDataPartition(recs_standardized$TEMPMA, p = 0.8, list = FALSE, times = 1)
   
@@ -80,8 +80,8 @@ for (i in bootstrap[6:10]) {
     }
     
     mlMethod = list(c(method = "glm", NULL), # algorithm has no tuning parameters
-                c(method = "earth", expand.grid(degree = 1, 
-                                                nprune = round(seq(1, 100, length = 100)))),
+                # c(method = "earth", expand.grid(degree = 1, 
+                #                                 nprune = round(seq(1, 100, length = 100)))),
                 c(method = "pda", expand.grid(lambda = seq(0, 0.1, length = 100))),
                 c(method = "multinom", expand.grid(decay = seq(0, 0.1, length = 100))),
                 c(method = "treebag", NULL), # algorithm has no tuning parameters

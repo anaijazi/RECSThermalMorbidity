@@ -86,7 +86,7 @@ for (i in bootstrap) {
          select(starts_with(vars$VARIABLE))
        training$TEMPMA <- trainData$TEMPMA
        
-       ctrl$sampling <- "smote"
+       ctrl$sampling <- "rose"
     }
     
     else {
@@ -140,15 +140,15 @@ varImp_bootstrapped <- varImp_compiled %>%
 
 
 ```{r}
-plot_varImp <- ggplot(varImp_bootstrapped, aes(x = reorder(LONG.NAME, -ORDER), y = mag_Coef, colour = input_features, group = input_features, alpha = nonzero)) +
+plot_varImp <- ggplot(varImp_bootstrapped, aes(x = reorder(LONG.NAME, -ORDER), y = mean_Coef, colour = input_features, group = input_features, alpha = nonzero)) +
   scale_colour_manual(values = rev(my_pal3)) +
   scale_alpha(range = c(0.3, 1)) +
   geom_hline(yintercept = 0, linewidth = 0.3, colour = "#b2182b") +
-  geom_errorbar(aes(ymin = mag_Coef-(2*sd_Coef), ymax = mag_Coef+(2*sd_Coef)), width = 0.2, colour = "#000000", linewidth = 0.2) +
+  geom_errorbar(aes(ymin = mean_Coef-(2*sd_Coef), ymax = mean_Coef+(2*sd_Coef)), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_point(size = 2) +
   theme_custom() +
   coord_flip() +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
+  scale_y_continuous(breaks = seq(-1, 2.25, by = 0.25)) +
   facet_grid(CATEGORY.3~input_features, switch = "y", scales = "free_y", space = "free_y") +
   theme(panel.spacing = unit(0, "lines"),
         strip.background = element_blank(),

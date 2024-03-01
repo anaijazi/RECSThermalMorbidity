@@ -42,30 +42,30 @@ y <- recs_subset$TEMPMA
 Zero- and Near Zero-Variance Predictors
 
 ```{r}
-nzv <- nearZeroVar(recs_subset, saveMetrics = TRUE)
-nzv <- nearZeroVar(recs_subset)
-recs_nzv <- recs_subset[,-nzv]
-recs_nzv$TEMPMA <- y # add TEMPMA back
+nzv <- nearZeroVar(recs_subset, saveMetrics = TRUE, freqCut = 95, uniqueCut = 0.008270615) # Look for variables with less variance than TEMPMA
+# nzv <- nearZeroVar(recs_subset)
+# recs_nzv <- recs_subset[,-nzv]
+# recs_nzv$TEMPMA <- y # add TEMPMA back
 ```
+None of the variables met the threshold for removal
 
-Removes ASIAN, MIXED, OTHER_RACE, LARGEHOUSE, EQUIPM, AND PAYSUTL
 
 Correlated predictors
 ```{r}
-descrCor <-  cor(recs_nzv, method = "spearman")
+descrCor <-  cor(recs_subset, method = "spearman")
 summary(descrCor[upper.tri(descrCor)])
 
 # descrCor <-  cor(recs_nzv, method = "pearson")
 # summary(descrCor[upper.tri(descrCor)])
 
 highlyCorDescr <- findCorrelation(descrCor, cutoff = 0.75)
-recs_cor <- recs_nzv[,-highlyCorDescr]
 ```
+None of the variables met the threshold for removal
 
 Plot correlation matrix
 ```{r}
-corr <- round(cor(recs_nzv, method = "spearman"), 1)
-p.mat <- cor_pmat(recs_nzv)
+corr <- round(cor(recs_subset, method = "spearman"), 1)
+p.mat <- cor_pmat(recs_subset)
 
 ggcorrplot(corr, hc.order = TRUE, type = "upper",lab = F, p.mat = p.mat, outline.color = "white", legend.title = "Spearman's correlation coefficient") + 
   theme_custom() +
@@ -77,16 +77,14 @@ ggsave("CorrelationMatrix.pdf", units = "in", width = 6.5, height = 6)
 
 Linear dependencies
 ```{r}
-comboInfo <- findLinearCombos(recs_cor)
+comboInfo <- findLinearCombos(recs_subset)
 ```
 
 No linear combinations
 
 Centering and scaling
 ```{r}
-recs_input <- recs_cor %>%
-  mutate(TEMPMA = ifelse(TEMPMA == 1, "TEMPMA", "NONE")) %>%
-  mutate(TEMPMA = factor(TEMPMA, levels = c("TEMPMA", "NONE")))
+recs_input <- recs_subset
 
 preProcValues <- preProcess(recs_input, method = c("range"))
 

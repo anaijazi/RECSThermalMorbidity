@@ -1,0 +1,192 @@
+---
+title: "Machine Learning"
+author: "Arfa Aijazi"
+date: "October 2023"
+output:
+  html_document:
+    df_print: paged
+---
+
+This script builds a machine learning model to predict temperature-related morbidity
+
+### Setup
+Load libraries
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+# install.packages(c("zoo","xts","quantmod", "ROCR", "abind"))
+# install.packages("DMwR_0.4.1.tar", repos=NULL, type="source") # Package DMwR removed from the CRAN repository, so was downloaded from the Archives (https://cran.r-project.org/src/contrib/Archive/DMwR/). This package contains the SMOTE function integrated into caret's cross validation. 
+
+library(tidyverse)
+library(caret)
+library(DMwR)
+library(doParallel)
+library(rcartocolor)
+library(MLmetrics)
+library(foreach)
+
+options(es.use_symbols = TRUE)
+```
+
+Import data
+```{r}
+recs_standardized <- read_csv("../data/recs_standardized.csv") %>%
+  mutate(TEMPMA = ifelse(TEMPMA == 1, "TEMPMA", "NONE")) %>%
+  mutate(TEMPMA = factor(TEMPMA, levels = c("TEMPMA", "NONE")))
+
+variables <- read_csv("../data/variables.csv")
+```
+
+### Machine learning model building
+```{r}
+set.seed(123)
+bootstrap = sample(1:100, 30)
+input_features = c("Baseline", "All")
+imbalance = c("none", "weighted", "up", "smote", "rose")
+
+results_compiled <- data.frame(bootstrap = integer(), input_features = character(), imbalance = character(), mlMethod = character, time.start = double(), time.end = double(), Precision = double(), Recall = double(), F1 = double(), BalancedAccuracy = double())
+
+for (i in bootstrap[22:24]) {
+  set.seed(i)
+  trainIndex <- createDataPartition(recs_standardized$TEMPMA, p = 0.8, list = FALSE, times = 1)
+  
+  trainData <- recs_standardized[trainIndex,]
+  testData <- recs_standardized[-trainIndex,]
+  
+  set.seed(i)
+  ctrl <- trainControl(method = "repeatedcv",
+                     number = 5,
+                     repeats = 5,
+                     summaryFunction = prSummary,
+                     classProbs = TRUE,
+                     index = createFolds(trainData$TEMPMA, 5),
+                     allowParallel = TRUE)
+  
+  model_weights <- ifelse(trainData$TEMPMA == "TEMPMA",
+                        (1/table(trainData$TEMPMA)[1]) * 0.5,
+                        (1/table(trainData$TEMPMA)[2]) * 0.5)
+  
+  for (j in input_features) {
+    if (j == "Baseline") {
+      vars <- variables %>%
+        filter(BASELINE == 1)
+      
+       training <- trainData %>%
+         select(starts_with(vars$VARIABLE))
+       training$TEMPMA <- trainData$TEMPMA
+    }
+    
+    else {
+      training <- trainData
+    }
+    
+    mlMethod = list(c(method = "glm", NULL), # algorithm has no tuning parameters
+                # c(method = "earth", expand.grid(degree = 1, 
+                #                                 nprune = round(seq(1, 100, length = 100)))),
+                c(method = "pda", expand.grid(lambda = seq(0, 0.1, length = 100))),
+                c(method = "multinom", expand.grid(decay = seq(0, 0.1, length = 100))),
+                c(method = "treebag", NULL), # algorithm has no tuning parameters
+                c(method = "gbm", expand.grid(interaction.depth = 1, 
+                                              n.trees = seq(50, 500, length = 10), 
+                                              shrinkage = 5*10^seq(-2, -3, length = 10),
+                                              n.minobsinnode = 10)),
+                c(method = "ranger", expand.grid(mtry = round(seq(1, ncol(training)-1, length = 10)),
+                                                 splitrule = c("gini", "extratrees"),
+                                                 min.node.size = seq(1,5, length = 5))),
+                c(method = "nnet", expand.grid(size = round(seq(1, ncol(training)-1, length = 10)), 
+                         decay = 10^seq(-7, -1, length = 10))))
+    
+    for (k in imbalance) {
+      if (k == "none" | k == "weighted") {
+        ctrl$sampling = NULL
+      } else {
+        ctrl$sampling = k
+      }
+      
+      for (m in mlMethod) {
+        start <- Sys.time()
+       
+        if (m[[1]] == "glm" | m[[1]] == "treebag") { # these ML algorithms do not have tuning parameters
+          if (k == "weighted") {
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
+                               data = training,
+                               method = m[[1]],
+                               weights = model_weights,
+                               metric = "AUC",
+                               trControl = ctrl)
+            stopCluster(cl) 
+          }
+          else{
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
+                          data = training,
+                          method = m[[1]],
+                          metric = "AUC",
+                          trControl = ctrl)
+            stopCluster(cl) 
+          }
+           
+        }
+        else {
+          if (k == "weighted") {
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
+                          data = training,
+                          method = m[[1]],
+                          weights = model_weights,
+                          metric = "AUC",
+                          trControl = ctrl,
+                          tuneGrid = data.frame(m[-1]))
+            stopCluster(cl) 
+          }
+          else{
+            cl <- makePSOCKcluster(detectCores())
+            registerDoParallel(cl) # Start parallel processing
+            set.seed(123)
+            train_fit <- train(TEMPMA ~ .,
+                          data = training,
+                          method = m[[1]],
+                          metric = "AUC",
+                          trControl = ctrl,
+                          tuneGrid = data.frame(m[-1]))
+            stopCluster(cl) 
+          }
+        }
+        # End parallel processing
+        end <- Sys.time()
+        
+        predictions <- predict(train_fit, testData)
+        confusionMatrix_output <- confusionMatrix(data = predictions, reference = testData$TEMPMA)
+    
+        results <- data.frame(bootstrap = i, 
+                              input_features = j, 
+                              imbalance = k, 
+                              mLMethod = m[[1]], 
+                              time.start = start, 
+                              time.end = end, 
+                              Precision = confusionMatrix_output$byClass[["Precision"]], 
+                              Recall = confusionMatrix_output$byClass[["Recall"]], 
+                              F1 = confusionMatrix_output$byClass[["F1"]],
+                              BalancedAccuracy = confusionMatrix_output$byClass[["Balanced Accuracy"]])
+        results_compiled <- rbind(results_compiled, results)
+        write_csv(results_compiled, "../data/results_compiled_8.csv")
+      }
+    }
+  }
+}
+
+
+```
+
+### Export file
+
+```{r}
+write_csv(results_compiled, "../data/results_compiled_8.csv")
+```
+

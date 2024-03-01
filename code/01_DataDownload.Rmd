@@ -112,7 +112,6 @@ recs_2020_sub <- recs_2020 %>%
                               ACEQUIPM_PUB == 6 ~ 6, # Primarily uses evaporative or swamp cooler
                               ACEQUIPM_PUB > 0 & ACEQUIPAUXTYPE_PUB > 0 ~ 3,
                               TRUE ~ -2)) %>%
-  mutate(EQUIPM = ifelse(EQUIPM == 13, 4, EQUIPM)) %>% # Combines heat pump
   mutate(POVERTY = case_when(MONEYPY <= 10000 ~ 1,
                              NUMADULT == 1 & HHAGE >= 65 & MONEYPY <= 12500 ~ 1,
                              NUMADULT == 2 & HHAGE >= 65 & MONEYPY <= 15000 ~ 1,
@@ -179,7 +178,7 @@ recs_recode <- recs_all %>%
                               WALLTYPE == 6 ~ "Stone",
                               WALLTYPE == 7 ~ "Concrete",
                               WALLTYPE == 99 ~ "Other")) %>%
-  mutate(THERMALMASS.WALL = case_when(WALLTYPE == "Brick" ~ 0.143, # Based on thermal mass calculation in separete spreadsheet
+  mutate(THERMALMASS.WALL = case_when(WALLTYPE == "Brick" ~ 0.143, # Based on thermal mass calculation in separate spreadsheet
                                       WALLTYPE == "Wood" ~ 0.013,
                                       WALLTYPE == "Siding" ~ 0.004,
                                       WALLTYPE == "Stucco" ~ 0.024,
@@ -194,32 +193,34 @@ recs_recode <- recs_all %>%
                               ROOFTYPE == 6 ~ "ConcreteTiles",
                               ROOFTYPE == 99 ~ "Other",
                               ROOFTYPE == -2 ~ "NoRoof")) %>%
-  mutate(THERMALMASS.ROOF = case_when(ROOFTYPE == "CeramicTiles" ~ 0.008, # Based on thermal mass calculation in seperate spre
+  mutate(THERMALMASS.ROOF = case_when(ROOFTYPE == "CeramicTiles" ~ 0.008, # Based on thermal mass calculation in separate spreadsheet
                                       ROOFTYPE == "WoodShingle" ~ 0.013,
                                       ROOFTYPE == "Metal" ~ 0.001,
                                       ROOFTYPE == "SlateShake" ~ 0.044,
                                       ROOFTYPE == "Shingles" ~ 0.069,
                                       ROOFTYPE == "ConcreteTiles" ~ 0.038,
                                       TRUE ~ 0)) %>%
-  mutate(THERMALMASS.WALL = ifelse(ADQINSUL <= 1, THERMALMASS.WALL, 0)) %>%
-  mutate(THERMALMASS.ROOF = ifelse(ADQINSUL <= 1, THERMALMASS.ROOF, 0)) %>%
+  mutate(THERMALMASS.WALL = ifelse(ADQINSUL <= 2, THERMALMASS.WALL, 0)) %>%
+  mutate(THERMALMASS.ROOF = ifelse(ADQINSUL <= 2, THERMALMASS.ROOF, 0)) %>%
   mutate(COOLTYPE = case_when(COOLTYPE == 1 ~ 1,
                               COOLTYPE == 2 ~ 0.5,
                               COOLTYPE == 3 ~ 1,
                               COOLTYPE == 6 ~ 0.5,
                               COOLTYPE == -2 & AIRCOND == 0 ~ 0)) %>%
-  mutate(EQUIPM = case_when(EQUIPM == 2 ~ 1,
-                            EQUIPM == 3 ~ 1,
-                            EQUIPM == 4 ~ 1,
-                            EQUIPM == 5 ~ 1,
-                            EQUIPM == 6 ~ 1,
-                            EQUIPM == 7 ~ 1,
-                            EQUIPM == 8 ~ 0.5,
-                            EQUIPM == 9 ~ 0.5,
-                            EQUIPM == 10 ~ 0.5,
-                            EQUIPM == 99 ~ 0,
+  mutate(EQUIPM = case_when(EQUIPM == 2 ~ 1, # Steam or hot water system with radiators or pipes
+                            EQUIPM == 3 ~ 1, # Central furnance
+                            EQUIPM == 4 ~ 1, # Central heat pump
+                            EQUIPM == 5 ~ 1, # Built-in electric units, installed in walls, ceilings, baseboards, or floors
+                            EQUIPM == 6 ~ 1, # Built-in floor/wall pipeless furnace
+                            EQUIPM == 7 ~ 1, # Built-in room heater burning gas, oil, or kerosene
+                            EQUIPM == 8 ~ 0.5, # Wood-burning stove
+                            EQUIPM == 9 ~ 0.5, # Fireplace
+                            EQUIPM == 10 ~ 0.5, # Portable electric heater
+                            EQUIPM == 13 ~ 1, # Ductless heat pump
+                            EQUIPM == 99 ~ 0, 
                             EQUIPM == -2 ~ 0)) %>%
   mutate(EMPLOYHH = ifelse(EMPLOYHH == 2, 0.5, EMPLOYHH)) %>% # Part-time employment
+  mutate(UNEMPLOYED = -1*EMPLOYHH) %>%
   mutate(DRAFTY = (DRAFTY*-1) + 4) %>%
   mutate(OFFGRID = ifelse(BACKUP == 1 | SOLAR == 1, 1, 0)) %>%
   mutate(HVAC_OPERATION = case_when(NOACEL == 1 ~ 1,
@@ -238,7 +239,7 @@ recs_recode <- recs_all %>%
 
 ```{r}
 recs_subset <- recs_recode %>%
-  select(DBT1, DBT99, WHITE, BLACK, ASIAN, MIXED, OTHER_RACE, SDESCENT, OVER65, LIVESALONE, LARGEHOUSE, POVERTY, EMPLOYHH, HIGHSCHOOL, RENT, PAYSUTL, APARTMENT, MOBILE, YEARMADERANGE, THERMALMASS.WALL, THERMALMASS.ROOF, ADQINSUL, DRAFTY, WWR, TYPEGLASS, COOLTYPE, EQUIPM, HVAC_OPERATION, HVAC_MAINTENANCE, NUMFANS, OFFGRID, TEMPMA)
+  select(DBT1, DBT99, WHITE, BLACK, ASIAN, MIXED, OTHER_RACE, SDESCENT, OVER65, LIVESALONE, LARGEHOUSE, POVERTY, UNEMPLOYED, HIGHSCHOOL, RENT, ELPAY, NGPAY, LPGPAY, FOPAY, APARTMENT, MOBILE, YEARMADERANGE, THERMALMASS.WALL, THERMALMASS.ROOF, ADQINSUL, DRAFTY, WWR, TYPEGLASS, COOLTYPE, EQUIPM, HVAC_OPERATION, HVAC_MAINTENANCE, NUMFANS, OFFGRID, TEMPMA)
 ```
 
 ### Export

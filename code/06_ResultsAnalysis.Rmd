@@ -296,83 +296,13 @@ Combined plot
 ```{r}
 plot_top <- ggarrange(plot_BalancedAccuracy_combined, plot_Recall_combined, plot_Precision_combined, ncol = 1, nrow = 3)
 
-ggarrange(plot_top, ncol = 1, nrow = 2, common.legend = TRUE)
+ggarrange(plot_top, plot_varImp, ncol = 1, nrow = 2, common.legend = TRUE)
 
 ggsave("Figure2_ML_Results.pdf", units = "in", width = 6.4, height = 7)
 ```
 
-### Figure 3: Impact of machine learning modeling decisions
-```{r}
-plot_BalancedAccuracy_imbalance_box <- ggplot(results_converged, aes(x = reorder(imbalance.label, BalancedAccuracy), y = BalancedAccuracy, fill = input_features)) +
-  scale_fill_manual(values = rev(my_pal3)) +
-  geom_boxplot(lwd = 0.25, outlier.size = 0.1) +
-  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), expand = c(0, 0.02)) +
-  theme_custom() +
-  theme(axis.text.x = element_blank()) +
-  theme(axis.title.x = element_blank()) +
-  # theme(legend.position = "none") +
-  theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  coord_flip()
 
-plot_BalancedAccuracy_mlType_box <- ggplot(results_converged, aes(x = reorder(mlMethod.label, BalancedAccuracy), y = BalancedAccuracy, fill = input_features)) +
-  scale_fill_manual(values = rev(my_pal3)) +
-  geom_boxplot(lwd = 0.25, outlier.size = 0.1) +
-  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), labels = percent, expand = c(0, 0.02)) +
-  theme_custom() +
-  theme(axis.title.x = element_text()) +
-  theme(legend.position = "none") +
-  xlab("Balanced Accuracy") +
-  theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  coord_flip()
 
-ggarrange(plot_BalancedAccuracy_imbalance_box, plot_BalancedAccuracy_mlType_box, align = "v", nrow = 2, ncol = 1, common.legend = TRUE, heights = c(5,8))
 
-ggsave("Figure3_mlModelParameters.pdf", units = "in", width = 6.2, height = 4)
-
-```
-
-### Figure 4: Trade-off between model performance and computation time
-```{r}
-results_reduced <- results_compiled #%>%
-  # filter(mlMethod == "glm" | mlMethod == "earth" | mlMethod == "pda" | mlMethod == "multinom")
-
-ggplot(results_reduced, aes(x = time.elapsed, y = BalancedAccuracy, colour = mlMethod2)) +
-  # scale_colour_manual(values = my_pal5_2) +
-  # scale_fill_manual(values = my_pal5_2) +
-  scale_linetype_manual(values = c("solid", "twodash", "longdash", "dotted", "dotdash")) +
-  geom_point(aes(shape = imbalance.label), position = position_jitter(width = 0.1, height = 0.1, seed = 1), size = 1) + 
-  geom_mark_ellipse(aes(fill = mlMethod2), alpha = 0.3, linewidth = 0) +
-  geom_mark_ellipse(aes(linetype = imbalance.label, colour = mlMethod2), linewidth = 0.25) +
-  geom_point(aes(shape = imbalance.label), position = position_jitter(width = 0.1, height = 0.1, seed = 1), size = 1) + 
-  scale_x_continuous(trans = "log2", sec.axis = sec_axis(~log2(.), breaks = seq(4, 9, by = 1), name = "log2(Computation time (s))"), breaks = 2^seq(4, 9, by = 1)) +
-  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0,1), labels = percent, expand = c(0, 0)) +
-  theme_custom() +
-  theme(panel.grid.major = element_line(colour = "#f7f7f7")) +
-  theme(axis.title = element_text()) +
-  theme(axis.text.x = element_text()) +
-  xlab("Computation time (s)") +
-  ylab("Balanced Accuracy") +
-  guides(fill = guide_legend(title.position = "top", nrow = 1),
-         colour = guide_legend(title.position = "top", nrow = 1),
-         shape = guide_legend(title.position = "top", nrow = 1),
-         linetype = guide_legend(title.position = "top", nrow = 1))
-
- ggsave("Figure4_tradeoff.pdf", units = "in", width = 6.5, height = 4)
-```
-```{r}
-results_bootstrapped_all <- results_bootstrapped %>%
-  filter(input_features == "All")
-
-ggplot(results_bootstrapped_all, aes(x = imbalance.label, y = mlMethod.label, colour = mean_BalancedAccuracy, shape = mean_time.elapsed_bin, size = 1/mean_time.elapsed)) +
-  scale_colour_gradient2(low = "#a50026", mid = "#eaeccc", high = "#364b9a", limits = c(0, 1), midpoint = 0.5, labels = percent) +
-  scale_shape_manual(values = c(15, 16, 17)) +
-  geom_point(size = 5) +
-  theme_custom()
-
- ggsave("Figure3_interactions.pdf", units = "in", width = 6.5, height = 4)
-```
 
 

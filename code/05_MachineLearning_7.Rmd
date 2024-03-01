@@ -40,15 +40,12 @@ variables <- read_csv("../data/variables.csv")
 ```{r}
 set.seed(123)
 bootstrap = sample(1:100, 30)
-bootstrap_7 = c(bootstrap[15], bootstrap[20], bootstrap[30])
-# input_features = c("Baseline", "All")
-input_features_7 = c("All")
+input_features = c("Baseline", "All")
 imbalance = c("none", "weighted", "up", "smote", "rose")
-imbalance_7 = c("weighted", "up", "smote", "rose")
 
 results_compiled <- data.frame(bootstrap = integer(), input_features = character(), imbalance = character(), mlMethod = character, time.start = double(), time.end = double(), Precision = double(), Recall = double(), F1 = double(), BalancedAccuracy = double())
 
-for (i in bootstrap[26:30]) {
+for (i in bootstrap[19:21]) {
   set.seed(i)
   trainIndex <- createDataPartition(recs_standardized$TEMPMA, p = 0.8, list = FALSE, times = 1)
   
@@ -83,8 +80,8 @@ for (i in bootstrap[26:30]) {
     }
     
     mlMethod = list(c(method = "glm", NULL), # algorithm has no tuning parameters
-                c(method = "earth", expand.grid(degree = 1, 
-                                                nprune = round(seq(1, 100, length = 100)))),
+                # c(method = "earth", expand.grid(degree = 1, 
+                #                                 nprune = round(seq(1, 100, length = 100)))),
                 c(method = "pda", expand.grid(lambda = seq(0, 0.1, length = 100))),
                 c(method = "multinom", expand.grid(decay = seq(0, 0.1, length = 100))),
                 c(method = "treebag", NULL), # algorithm has no tuning parameters
@@ -178,7 +175,7 @@ for (i in bootstrap[26:30]) {
                               F1 = confusionMatrix_output$byClass[["F1"]],
                               BalancedAccuracy = confusionMatrix_output$byClass[["Balanced Accuracy"]])
         results_compiled <- rbind(results_compiled, results)
-        write_csv(results_compiled, "../data/results_compiled_6.csv")
+        write_csv(results_compiled, "../data/results_compiled_7.csv")
       }
     }
   }
@@ -190,6 +187,6 @@ for (i in bootstrap[26:30]) {
 ### Export file
 
 ```{r}
-write_csv(results_compiled, "../data/results_compiled_6.csv")
+write_csv(results_compiled, "../data/results_compiled_7.csv")
 ```
 
