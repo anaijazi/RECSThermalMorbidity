@@ -14,9 +14,9 @@ library(caret)
 library(DMwR)
 library(doParallel)
 library(scales)
-library(ggpubr)
+# library(ggpubr)
 library(effectsize)
-library(ggforce)
+# library(ggforce)
 ```
 Custom plot theme
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -75,7 +75,8 @@ for (i in bootstrap) {
                      summaryFunction = prSummary,
                      classProbs = TRUE,
                      index = createFolds(trainData$TEMPMA, 5),
-                     allowParallel = TRUE)
+                     allowParallel = TRUE,
+                     sampling = "rose")
   
   for (j in input_features) {
     if (j == "Baseline") {
@@ -85,13 +86,10 @@ for (i in bootstrap) {
        training <- trainData %>%
          select(starts_with(vars$VARIABLE))
        training$TEMPMA <- trainData$TEMPMA
-       
-       ctrl$sampling <- "rose"
     }
     
     else {
       training <- trainData
-      ctrl$sampling <- "rose"
     }
        
        cl <- makePSOCKcluster(detectCores())
@@ -159,7 +157,7 @@ plot_varImp <- ggplot(varImp_bootstrapped, aes(x = reorder(LONG.NAME, -ORDER), y
   ylab("Magnitude of regression coefficient") +
   theme(panel.grid.major.x = element_line(colour = "#f7f7f7"))
 
-ggsave("Figure5_coefficiencts.pdf", units = "in", width = 6.5, height = 4)
+save(plot_varImp, file = "../data/plot_varImp.rdata")
 ```
                  
                      

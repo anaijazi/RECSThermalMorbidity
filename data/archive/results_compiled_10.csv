@@ -1,0 +1,4 @@
+bootstrap,input_features,imbalance,mLMethod,time.start,time.end,Precision,Recall,F1,BalancedAccuracy
+41,Baseline,none,glm,2024-03-02T01:00:02Z,2024-03-02T01:00:20Z,NA,0,NA,0.5
+41,Baseline,none,pda,2024-03-02T01:00:20Z,2024-03-02T01:01:06Z,0.3333333333333333,0.04,0.07142857142857142,0.5195821145006269
+41,Baseline,none,multinom,2024-03-02T01:01:06Z,2024-03-02T01:01:33Z,NA,0,NA,0.5

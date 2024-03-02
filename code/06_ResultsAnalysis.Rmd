@@ -10,7 +10,7 @@ This script analyzes the machine learning model results
 ```{r}
 library(tidyverse)
 library(scales)
-library(ggpubr)
+# library(ggpubr)
 library(effectsize)
 library(ggforce)
 ```

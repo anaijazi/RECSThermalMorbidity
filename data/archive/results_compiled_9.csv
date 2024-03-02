@@ -1,0 +1,6 @@
+bootstrap,input_features,imbalance,mLMethod,time.start,time.end,Precision,Recall,F1,BalancedAccuracy
+32,Baseline,none,glm,2024-03-02T00:57:20Z,2024-03-02T00:57:36Z,NA,0,NA,0.5
+32,Baseline,none,pda,2024-03-02T00:57:36Z,2024-03-02T00:58:24Z,0.2,0.02,0.03636363636363636,0.5095821145006268
+32,Baseline,none,multinom,2024-03-02T00:58:24Z,2024-03-02T00:58:52Z,NA,0,NA,0.5
+32,Baseline,none,treebag,2024-03-02T00:58:53Z,2024-03-02T00:59:13Z,0,0,NA,0.4986418721270372
+32,Baseline,none,gbm,2024-03-02T00:59:14Z,2024-03-02T00:59:38Z,NA,0,NA,0.5
