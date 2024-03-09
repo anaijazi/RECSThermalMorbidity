@@ -10,7 +10,7 @@ This script analyzes the machine learning model results
 ```{r}
 library(tidyverse)
 library(scales)
-# library(ggpubr)
+library(ggpubr)
 library(effectsize)
 library(ggforce)
 ```
@@ -160,16 +160,16 @@ plot_BalancedAccuracy_input <- ggplot(results_bootstrapped, aes(x = Number, y = 
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_BalancedAccuracy-(2*sd_BalancedAccuracy), ymax = mean_BalancedAccuracy+(2*sd_BalancedAccuracy)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
+  scale_x_continuous(breaks = seq(0, 70, by = 10), expand = c(0,0)) +
   scale_y_continuous(breaks = seq(0, 1, by = 0.25), labels = percent) +
-  coord_cartesian(xlim = c(0,80.5), ylim = c(0,1)) +
+  coord_cartesian(xlim = c(0,70.5), ylim = c(0,1)) +
   theme_custom() +
   theme(legend.position = "none") +
   theme(axis.title.y = element_text()) +
   theme(axis.text.x = element_blank()) +
   ylab("Balanced Accuracy") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 66.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
+  annotate("rect", xmin = 61.5, xmax = 68.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
 
 best_models_BalancedAccuracy <- best_models %>%
   pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
@@ -207,16 +207,16 @@ plot_Recall_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Recal
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_Recall-(2*sd_Recall), ymax = mean_Recall+(2*sd_Recall)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
+  scale_x_continuous(breaks = seq(0, 70, by = 10), expand = c(0,0)) +
   scale_y_continuous(breaks = seq(0, 1, by = 0.25), labels = percent) +
-  coord_cartesian(xlim = c(0,80.5), ylim = c(0,1)) +
+  coord_cartesian(xlim = c(0,70.5), ylim = c(0,1)) +
   theme_custom() +
   theme(legend.position = "none") +
   theme(axis.title.y = element_text()) +
   theme(axis.text.x = element_blank()) +
   ylab("Recall") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 66.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
+  annotate("rect", xmin = 61.5, xmax = 68.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
 
 best_models_Recall <- best_models %>%
   pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
@@ -254,16 +254,16 @@ plot_Precision_input <- ggplot(results_bootstrapped, aes(x = Number, y = mean_Pr
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin = mean_Precision-(2*sd_Precision), ymax = mean_Precision+(2*sd_Precision)), position = position_dodge(width = 0.8), width = 0.2, colour = "#000000", linewidth = 0.2) +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_x_continuous(breaks = seq(0, 80, by = 10), expand = c(0,0)) +
-  scale_y_continuous(breaks = seq(0, 0.3, by = 0.1), labels = percent) +
-  coord_cartesian(xlim = c(0,80.5), ylim = c(0,0.3)) +
+  scale_x_continuous(breaks = seq(0, 70, by = 10), expand = c(0,0)) +
+  scale_y_continuous(breaks = seq(0, 0.5, by = 0.1), labels = percent) +
+  coord_cartesian(xlim = c(0,70.5), ylim = c(0,0.5)) +
   theme_custom() +
   theme(legend.position = "none") +
   theme(axis.title.y = element_text()) +
   ylab("Precision") +
   xlab("Machine learning models (ranked by balanced accuracy)") +
   theme(panel.grid.major.y = element_line(colour = "#f7f7f7")) +
-  annotate("rect", xmin = 66.5, xmax = 78.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
+  annotate("rect", xmin = 61.5, xmax = 68.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "#bbbbbb")
 
 best_models_Precision <- best_models %>%
   pivot_longer(cols = Precision:BalancedAccuracy, names_to = "Metric", values_to = "Value") %>%
@@ -280,9 +280,9 @@ mag_eff_Precision <- round(abs(effectsize_Precision$Cohens_d), 1)
 
  plot_Precision_best <- ggpaired(best_models_Precision, cond1 = "Baseline", cond2 = "All", x = "Baseline", y = "All", fill = "condition",line.color = "#bbbbbb", line.size = 0.2, palette = rev(my_pal3)) +
   geom_hline(yintercept = c(0), linetype = "dashed", linewidth = 0.3, colour = "#b2182b") +
-  scale_y_continuous(breaks = seq(0, 0.3, by = 0.1), limits = c(0,0.3), labels = percent) +
+  scale_y_continuous(breaks = seq(0, 0.5, by = 0.1), limits = c(0,0.5), labels = percent) +
   # stat_compare_means(label = "p.format", method = "t.test", ref.group = "Baseline", size = 3) +
-  annotate("text", x = "All", y = 0.1, label = paste0(mean_diff_Precision,"% increase in recall\np < 0.001\n|d| = ", mag_eff_Precision, " (strong effect)"), size = 3) +
+  annotate("text", x = "All", y = 0.1, label = paste0(mean_diff_Precision,"% increase in precision\np < 0.001\n|d| = ", mag_eff_Precision, " (strong effect)"), size = 3) +
   theme_custom() +
   theme(legend.position = "none") +
   theme(axis.text.y = element_blank()) +
@@ -292,13 +292,11 @@ mag_eff_Precision <- round(abs(effectsize_Precision$Cohens_d), 1)
 plot_Precision_combined <- ggarrange(plot_Precision_input, plot_Precision_best, ncol = 2, nrow = 1, widths = c(1,0.5), align = "h")
 ```
 
-Combined plot
+Compbined plot (top panel)
 ```{r}
 plot_top <- ggarrange(plot_BalancedAccuracy_combined, plot_Recall_combined, plot_Precision_combined, ncol = 1, nrow = 3)
 
-ggarrange(plot_top, plot_varImp, ncol = 1, nrow = 2, common.legend = TRUE)
-
-ggsave("Figure2_ML_Results.pdf", units = "in", width = 6.4, height = 7)
+save(plot_top, file = "../data/plot_top.rdata")
 ```
 
 

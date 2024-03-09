@@ -1,0 +1,24 @@
+---
+title: "Untitled"
+author: "Arfa Aijazi"
+date: "2024-03-08"
+output: html_document
+---
+
+### Setup
+```{r}
+library(tidyverse)
+library(scales)
+library(ggpubr)
+library(effectsize)
+library(ggforce)
+```
+
+```{r}
+load("../data/plot_top.rdata")
+load("../data/plot_varImp.rdata")
+ggarrange(plot_top, plot_varImp, ncol = 1, nrow = 2, common.legend = TRUE)
+
+ggsave("Figure2_ML_Results.pdf", units = "in", width = 6.4, height = 7.5)
+```
+
