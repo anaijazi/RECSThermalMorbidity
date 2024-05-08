@@ -12,7 +12,7 @@ Load libraries
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(caret)
-library(ggcorrplot)
+library(rstatix)
 
 options(es.use_symbols = TRUE)
 ```
@@ -42,7 +42,9 @@ y <- recs_subset$TEMPMA
 Zero- and Near Zero-Variance Predictors
 
 ```{r}
-nzv <- nearZeroVar(recs_subset, saveMetrics = TRUE, freqCut = 95, uniqueCut = 0.008270615) # Look for variables with less variance than TEMPMA
+nzv <- nearZeroVar(recs_subset, saveMetrics = TRUE, freqCut = 95, uniqueCut = 0.008270615) %>% # Look for variables with less variance than TEMPMA
+  rownames_to_column(var = "Variable")
+write_csv(nzv, "../data/recs_nzv.csv")
 # nzv <- nearZeroVar(recs_subset)
 # recs_nzv <- recs_subset[,-nzv]
 # recs_nzv$TEMPMA <- y # add TEMPMA back
@@ -53,6 +55,12 @@ None of the variables met the threshold for removal
 Correlated predictors
 ```{r}
 descrCor <-  cor(recs_subset, method = "spearman")
+
+df_Cor <- as.data.frame(descrCor) %>%
+  rownames_to_column(var = "Variable")
+
+write_csv(df_Cor, "../data/recs_cor.csv")
+
 summary(descrCor[upper.tri(descrCor)])
 
 # descrCor <-  cor(recs_nzv, method = "pearson")
@@ -64,14 +72,10 @@ None of the variables met the threshold for removal
 
 Plot correlation matrix
 ```{r}
-corr <- round(cor(recs_subset, method = "spearman"), 1)
-p.mat <- cor_pmat(recs_subset)
+corr <- cor_mat(recs_subset, method = "spearman") %>%
+  pull_upper_triangle(diagonal = TRUE)
 
-ggcorrplot(corr, hc.order = TRUE, type = "upper",lab = F, p.mat = p.mat, outline.color = "white", legend.title = "Spearman's correlation coefficient") + 
-  theme_custom() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-ggsave("CorrelationMatrix.pdf", units = "in", width = 6.5, height = 6)
+write_csv(corr, "../data/recs_cor.csv")
 ```
 
 
